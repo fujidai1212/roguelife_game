@@ -13,6 +13,7 @@ interface DebugStore {
   entries: LogEntry[];
   rng: Rng;
   tap: (choiceId: string) => void;
+  tapSystem: (label: string) => void;
 }
 
 let nextId = 0;
@@ -29,4 +30,8 @@ export const useDebugStore = create<DebugStore>((set) => ({
           : debugTexts.results[choiceId as 'look' | 'shout' | 'sleep'];
       return { entries: [...state.entries, entry(text)] };
     }),
+  tapSystem: (label) =>
+    set((state) => ({
+      entries: [...state.entries, entry(debugTexts.systemNotImplemented(label))],
+    })),
 }));

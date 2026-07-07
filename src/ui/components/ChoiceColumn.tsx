@@ -14,7 +14,7 @@ const SLOTS_PER_COLUMN = 4;
 /**
  * 選択肢ボタンの縦カラム。画面の左右に1つずつ置き、計8スロットにする
  * （GAME_DESIGN.md UI方針）。使わないスロットは空白の枠のまま表示し、
- * レイアウトを常に固定する。
+ * レイアウトを常に固定する。ボタンの高さは固定（縦に小さめ）。
  */
 export function ChoiceColumn({ choices, onSelect }: Props) {
   const slots: (Choice | undefined)[] = Array.from(
@@ -51,12 +51,11 @@ export function ChoiceColumn({ choices, onSelect }: Props) {
 
 const styles = StyleSheet.create({
   column: {
-    flex: 1,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
     gap: spacing.sm,
   },
   slot: {
-    flex: 1,
+    height: 48,
     borderRadius: 4,
     borderWidth: 1,
   },

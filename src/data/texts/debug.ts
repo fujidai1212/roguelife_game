@@ -18,4 +18,5 @@ export const debugTexts = {
     sleep: '眠ろうとした。眠れなかった。時間だけが過ぎた。',
     dice: (value: number) => `ダイスを振った。出目は ${value}。だから何だ、という目だ。`,
   },
+  systemNotImplemented: (label: string) => `（「${label}」は未実装だ。今は何も起こらない。）`,
 } as const;
