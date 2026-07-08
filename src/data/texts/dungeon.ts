@@ -66,6 +66,9 @@ export const dungeonTexts = {
   },
   combat: {
     playerHit: (name: string, damage: number) => `お前の一撃が${name}に入った。（${damage}のダメージ）`,
+    magicHit: (name: string, damage: number) =>
+      `放った魔力が${name}を焼いた。防御など意味がない。（${damage}のダメージ）`,
+    selfHealed: (amount: number) => `祈りが傷を塞いだ。（HPが${amount}回復した）`,
     enemyHit: (name: string, damage: number) => `${name}の攻撃を受けた。（${damage}のダメージ）`,
     win: (name: string, gold: number) => `${name}は動かなくなった。${gold}Gを剥ぎ取った。`,
     fleeSuccess: '戦いを捨てて走った。恥は死より軽い。',

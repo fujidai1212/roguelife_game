@@ -1,8 +1,23 @@
 import { balance } from '../data/balance';
+import type { JobDef } from '../data/jobs';
 import type { Rng } from './rng';
 import type { Stats } from './types';
 
 /** キャラ作成に関する純粋ロジック。年齢は startAge 固定でロールしない */
+
+/** ロールしたステータスに職業の補正を加える（HPは全快で開始） */
+export function applyJobBonus(stats: Stats, job: JobDef): Stats {
+  const b = job.statBonus;
+  const maxHp = stats.maxHp + b.maxHp;
+  return {
+    maxHp,
+    hp: maxHp,
+    strength: stats.strength + b.strength,
+    agility: stats.agility + b.agility,
+    magic: stats.magic + b.magic,
+    luck: stats.luck + b.luck,
+  };
+}
 
 function rollDice(rng: Rng, dice: { count: number; sides: number; bonus: number }): number {
   let total = dice.bonus;

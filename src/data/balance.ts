@@ -88,6 +88,58 @@ export const balance = {
     fleeMin: 0.1,
     fleeMax: 0.9,
   },
+  skills: {
+    /** 聖騎士「自己回復」の回復量（最大HPに対する割合） */
+    selfHealFraction: 0.35,
+    /** 盗賊のパッシブ「逃走強化」による逃走成功率への加算 */
+    fleeBonus: 0.2,
+  },
+  /**
+   * 魂精算（GAME_DESIGN.md セクション7）。
+   * 獲得魂 = floor((生きた年数×perYearLived + 撃破数×perKill + 所持金÷goldPerSoul)
+   *          × 引退ボーナス) をティア上限でキャップ。
+   */
+  souls: {
+    perYearLived: 0.5,
+    perKill: 1,
+    /** この金額ごとに魂1 */
+    goldPerSoul: 100,
+    /** 自主引退時の獲得倍率（若干のボーナス） */
+    retireBonusMultiplier: 1.2,
+    /**
+     * 達成度ティア（上から順に判定し、最初に条件を満たしたものになる）。
+     * cap が null のティアは上限なし。midBossKills/bossKills はフェーズ5で実装。
+     */
+    tiers: [
+      { tier: 4, cap: null, anyOf: [{ kind: 'bossKills', value: 1 }] },
+      {
+        tier: 3,
+        cap: 80,
+        anyOf: [
+          { kind: 'depth', value: 10 },
+          { kind: 'midBossKills', value: 2 },
+        ],
+      },
+      {
+        tier: 2,
+        cap: 40,
+        anyOf: [
+          { kind: 'depth', value: 6 },
+          { kind: 'midBossKills', value: 1 },
+          { kind: 'gold', value: 2000 },
+        ],
+      },
+      {
+        tier: 1,
+        cap: 15,
+        anyOf: [
+          { kind: 'depth', value: 3 },
+          { kind: 'gold', value: 500 },
+        ],
+      },
+      { tier: 0, cap: 5, anyOf: [] },
+    ],
+  },
   work: {
     /** 労働の契約年数の選択肢。ボタンとしてこの順に並ぶ（最大4つ） */
     durationChoicesYears: [1, 3, 5, 10],

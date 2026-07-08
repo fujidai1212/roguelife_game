@@ -52,14 +52,16 @@ export type SceneId =
   | 'tavern'
   | 'itemShop'
   | 'work'
+  | 'church'
+  | 'guild'
   | 'dungeon'
   | 'camp'
   | 'combat'
   | 'retreat'
   | 'death';
 
-/** 死因。死亡テキストの出し分けに使う */
-export type DeathCause = 'oldAge' | 'battle' | 'trap' | 'poison';
+/** 人生の終わり方。テキストの出し分けと統計に使う（retired は引退＝死ではない） */
+export type DeathCause = 'oldAge' | 'battle' | 'trap' | 'poison' | 'retired';
 
 /** ダンジョンのノード内容（GAME_DESIGN.md セクション5） */
 export type DungeonNodeKind = 'entrance' | 'empty' | 'enemy' | 'chest' | 'fountain' | 'camp';
@@ -120,6 +122,14 @@ export interface LifeState {
   scene: SceneId;
   alive: boolean;
   deathCause?: DeathCause;
+  /** この人生で倒した敵の数（魂精算に使う） */
+  kills: number;
+  /** この人生で到達した最大深度（魂精算・レガシーに使う） */
+  maxDepth: number;
+  /** 引退の確認待ち（教会・ギルドで「引退を申し出る」を押した状態） */
+  retireConfirm?: boolean;
+  /** 人生終了時の魂精算の結果（applyAction が自動で設定する） */
+  settlement?: { tier: number; souls: number };
   /** ダンジョン内にいる間だけ存在する */
   dungeon?: DungeonState;
   /** 戦闘中だけ存在する */
@@ -133,11 +143,18 @@ export interface CreationState {
   rerollCount: number;
 }
 
-/** メタレイヤー（周回で引き継ぐ）状態。魂の本実装はフェーズ3 */
+/** メタレイヤー（周回で引き継ぐ）状態。人生セーブとは別領域に永続保存する */
 export interface MetaState {
   souls: number;
   unlockedJobs: JobId[];
+  /** 解放済みレガシーのID（src/data/legacies.ts） */
+  unlockedLegacies: string[];
+  /** 累計死亡数（引退は含まない） */
   totalDeaths: number;
+  /** 累計撃破数 */
+  totalKills: number;
+  /** 全人生を通した最高到達深度 */
+  bestDepth: number;
 }
 
 /** ゲーム全体の状態。これを丸ごとセーブする */
@@ -172,10 +189,15 @@ export type GameAction =
   | { type: 'camp/rest' }
   // --- 戦闘 ---
   | { type: 'combat/attack' }
+  | { type: 'combat/skill' }
   | { type: 'combat/itemsOpen' }
   | { type: 'combat/itemsClose' }
   | { type: 'combat/useItem'; itemId: ItemId }
-  | { type: 'combat/flee' };
+  | { type: 'combat/flee' }
+  // --- 引退（教会・ギルド） ---
+  | { type: 'retire/ask' }
+  | { type: 'retire/confirm' }
+  | { type: 'retire/cancel' };
 
 /**
  * すべてのゲーム進行の基本形: applyAction(state, action) => { state, logs }

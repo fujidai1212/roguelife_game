@@ -1,5 +1,6 @@
 import { balance } from '../data/balance';
 import { enemies } from '../data/enemies';
+import { jobs } from '../data/jobs';
 import { dungeonTexts } from '../data/texts/dungeon';
 import { lifeTexts } from '../data/texts/life';
 import type { DeathCause, EnemyInstance, LifeState } from './types';
@@ -17,12 +18,20 @@ export function rollDamage(rng: Rng, attack: number, defense: number): number {
   return Math.max(1, Math.round(Math.max(1, attack - defense) * variance));
 }
 
-/** 逃走成功率（素早さと運で決まる。GAME_DESIGN.md セクション6） */
+/** 逃走成功率（素早さと運で決まる。盗賊のパッシブ「逃走強化」で加算される） */
 export function fleeChance(life: LifeState): number {
   const { fleeBase, fleePerPoint, fleeMin, fleeMax } = balance.combat;
   const { agility, luck } = life.character.stats;
-  const chance = fleeBase + (agility + luck) * fleePerPoint;
+  const passives = jobs[life.character.jobId].passives;
+  const bonus = passives.includes('fleeBonus') ? balance.skills.fleeBonus : 0;
+  const chance = fleeBase + (agility + luck) * fleePerPoint + bonus;
   return Math.min(fleeMax, Math.max(fleeMin, chance));
+}
+
+/** プレイヤーが先手を取るか（盗賊のパッシブ「先制攻撃」は必ず先手） */
+export function playerActsFirst(life: LifeState, enemy: EnemyInstance): boolean {
+  if (jobs[life.character.jobId].passives.includes('firstStrike')) return true;
+  return life.character.stats.agility >= enemy.agility;
 }
 
 interface DamageResult {
@@ -89,16 +98,24 @@ export function resolveEnemyAttack(rng: Rng, life: LifeState, enemy: EnemyInstan
   };
 }
 
-/** プレイヤーの攻撃1回ぶんを解決する。戻り値の enemy.hp が0以下なら撃破 */
+/**
+ * プレイヤーの攻撃1回ぶんを解決する。戻り値の enemy.hp が0以下なら撃破。
+ * mode 'magic' は魔法攻撃（魔力で殴り、敵の防御を無視する。GAME_DESIGN.md セクション6）
+ */
 export function resolvePlayerAttack(
   rng: Rng,
   life: LifeState,
   enemy: EnemyInstance,
+  mode: 'attack' | 'magic' = 'attack',
 ): { enemy: EnemyInstance; logs: string[] } {
-  const damage = rollDamage(rng, life.character.stats.strength, enemy.defense);
   const name = enemies[enemy.defId].name;
-  return {
-    enemy: { ...enemy, hp: enemy.hp - damage },
-    logs: [dungeonTexts.combat.playerHit(name, damage)],
-  };
+  const damage =
+    mode === 'magic'
+      ? rollDamage(rng, life.character.stats.magic, 0)
+      : rollDamage(rng, life.character.stats.strength, enemy.defense);
+  const log =
+    mode === 'magic'
+      ? dungeonTexts.combat.magicHit(name, damage)
+      : dungeonTexts.combat.playerHit(name, damage);
+  return { enemy: { ...enemy, hp: enemy.hp - damage }, logs: [log] };
 }
