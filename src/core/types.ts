@@ -9,6 +9,9 @@ export type JobId = 'jobless' | 'swordsman' | 'thief' | 'mage' | 'paladin';
 /** アイテムID。マスターデータは src/data/items.ts */
 export type ItemId = 'herb' | 'potion' | 'returnScroll';
 
+/** 敵ID。マスターデータは src/data/enemies.ts */
+export type EnemyId = 'slime' | 'giantRat' | 'goblin' | 'skeleton' | 'orc';
+
 /** キャラクターの基本ステータス */
 export interface Stats {
   maxHp: number;
@@ -44,7 +47,70 @@ export type TownDest =
   | 'dungeon';
 
 /** 現在の場面。UIのイラスト・選択肢はここから決まる */
-export type SceneId = 'town' | 'tavern' | 'itemShop' | 'work' | 'death';
+export type SceneId =
+  | 'town'
+  | 'tavern'
+  | 'itemShop'
+  | 'work'
+  | 'dungeon'
+  | 'camp'
+  | 'combat'
+  | 'retreat'
+  | 'death';
+
+/** 死因。死亡テキストの出し分けに使う */
+export type DeathCause = 'oldAge' | 'battle' | 'trap' | 'poison';
+
+/** ダンジョンのノード内容（GAME_DESIGN.md セクション5） */
+export type DungeonNodeKind = 'entrance' | 'empty' | 'enemy' | 'chest' | 'fountain' | 'camp';
+
+/**
+ * フロアグラフの1ノード。プレイヤーにはグラフ全体を見せず、
+ * 現在ノードの edges（次のノードID）だけを選択肢として提示する。
+ */
+export interface DungeonNode {
+  id: number;
+  /** 段（0=入場地点、最終段=野営地）。エッジは必ず次の段へ向かう */
+  row: number;
+  kind: DungeonNodeKind;
+  /** 選択肢ボタンに出す気配テキスト（確定情報ではない） */
+  hint: string;
+  /** 進行先ノードのID（最大3つ） */
+  edges: number[];
+}
+
+/** ダンジョン探索の進行状態 */
+export interface DungeonState {
+  depth: number;
+  /** 現在のフロアのグラフ（プレイヤーには非表示） */
+  nodes: DungeonNode[];
+  currentNodeId: number;
+  /** 現在ノードで未解決のイベント（宝箱・泉の「開ける/飲む」待ち） */
+  pendingEvent?: 'chest' | 'fountain';
+  /** 歩いて帰還中の残りフロア数（scene が 'retreat' のとき有効） */
+  retreatFloorsLeft?: number;
+}
+
+/** 深度スケール適用済みの敵1体（戦闘中の状態） */
+export interface EnemyInstance {
+  defId: EnemyId;
+  hp: number;
+  maxHp: number;
+  attack: number;
+  defense: number;
+  agility: number;
+  goldMin: number;
+  goldMax: number;
+}
+
+/** 戦闘の進行状態 */
+export interface CombatState {
+  enemy: EnemyInstance;
+  /** 表示中のコマンドメニュー */
+  menu: 'main' | 'items';
+  /** 勝利・逃走後にどこへ戻るか（ノード探索中 or 帰還中） */
+  context: 'node' | 'retreat';
+}
 
 /** 人生レイヤーの進行状態（1プレイぶん） */
 export interface LifeState {
@@ -53,7 +119,11 @@ export interface LifeState {
   lifespanYears: number;
   scene: SceneId;
   alive: boolean;
-  deathCause?: 'oldAge';
+  deathCause?: DeathCause;
+  /** ダンジョン内にいる間だけ存在する */
+  dungeon?: DungeonState;
+  /** 戦闘中だけ存在する */
+  combat?: CombatState;
 }
 
 /** キャラ作成フローの状態（年齢は固定なのでステップは2つ） */
@@ -90,7 +160,22 @@ export type GameAction =
   | { type: 'work/labor'; years: number }
   | { type: 'shop/buy'; itemId: ItemId }
   | { type: 'scene/backToTown' }
-  | { type: 'death/reincarnate' };
+  | { type: 'death/reincarnate' }
+  // --- ダンジョン ---
+  | { type: 'dungeon/advance'; nodeId: number }
+  | { type: 'dungeon/chest'; open: boolean }
+  | { type: 'dungeon/fountain'; drink: boolean }
+  | { type: 'dungeon/useItem'; itemId: ItemId }
+  | { type: 'dungeon/retreat' }
+  | { type: 'retreat/step' }
+  | { type: 'camp/sleep' }
+  | { type: 'camp/rest' }
+  // --- 戦闘 ---
+  | { type: 'combat/attack' }
+  | { type: 'combat/itemsOpen' }
+  | { type: 'combat/itemsClose' }
+  | { type: 'combat/useItem'; itemId: ItemId }
+  | { type: 'combat/flee' };
 
 /**
  * すべてのゲーム進行の基本形: applyAction(state, action) => { state, logs }
