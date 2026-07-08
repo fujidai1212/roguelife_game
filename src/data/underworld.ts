@@ -68,4 +68,18 @@ export const underworldJobs: UnderworldJobDef[] = [
       death: '標的の護衛は、雇い主の話より三人多かった。',
     },
   },
+  {
+    id: 'graveWatch',
+    name: '墓荒らしの見張り',
+    payMin: 60,
+    payMax: 110,
+    successChance: 0.7,
+    jailChance: 0.22,
+    ageCost: 0.12,
+    texts: {
+      success: '月のない夜、お前は口笛を吹かなかった。それが合図だ。掘り出した連中は気前が良かった。',
+      jailed: '墓地の管理人は耳が良かった。衛兵はもっと早かった。',
+      death: '墓を暴いた連中が最初に埋め直したのは、見張りのお前だった。',
+    },
+  },
 ];
