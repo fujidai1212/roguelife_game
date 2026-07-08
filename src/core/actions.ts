@@ -95,9 +95,13 @@ function applyActionInner(state: GameState, action: GameAction): ActionResult {
 
     case 'creation/confirmStats': {
       if (state.phase !== 'creation' || state.creation?.step !== 'stats') return noop(state);
+      // 各職業の説明（スキルの有無を含む）もログに出す
+      const jobLines = Object.values(jobs).map((job) =>
+        creationTexts.jobLine(job.name, job.description),
+      );
       return {
         state: { ...state, creation: { ...state.creation, step: 'job' } },
-        logs: [creationTexts.jobPrompt(state.meta.souls)],
+        logs: [creationTexts.jobPrompt(state.meta.souls), ...jobLines],
       };
     }
 

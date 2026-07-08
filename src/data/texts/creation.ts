@@ -8,6 +8,8 @@ export const creationTexts = {
   rerolled: '声がため息をつく。「贅沢な魂だ」',
   jobPrompt: (souls: number) =>
     `「職を選べ」。お前の魂は${souls}を数える。魂を差し出せば、別の生き方を買える。`,
+  /** 職業選択画面で各職の説明として出す行 */
+  jobLine: (name: string, description: string) => `【${name}】${description}`,
   jobUnlocked: (jobName: string, cost: number) =>
     `魂を${cost}差し出した。「${jobName}」の生き方が、これからの全ての来世に開かれた。`,
   jobChosen: {

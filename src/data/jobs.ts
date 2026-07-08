@@ -48,7 +48,7 @@ export const jobs: Record<JobId, JobDef> = {
     unlockCost: 15,
     statBonus: { maxHp: 8, strength: 4, agility: 0, magic: 0, luck: 0 },
     passives: [],
-    description: 'HPと力が高い。安定した近接戦闘。',
+    description: 'HPと力が高い。スキルはないが、腕一本で安定して戦える。',
   },
   thief: {
     id: 'thief',
@@ -56,7 +56,7 @@ export const jobs: Record<JobId, JobDef> = {
     unlockCost: 30,
     statBonus: { maxHp: 0, strength: 0, agility: 5, magic: 0, luck: 2 },
     passives: ['firstStrike', 'fleeBonus'],
-    description: '素早さが高い。必ず先手を取り、逃げ足も速い。',
+    description: '素早さが高い。常時発動: 戦闘で必ず先手を取り、逃走にも成功しやすい。',
   },
   mage: {
     id: 'mage',
@@ -65,7 +65,7 @@ export const jobs: Record<JobId, JobDef> = {
     statBonus: { maxHp: 0, strength: 0, agility: 0, magic: 5, luck: 0 },
     activeSkill: { id: 'magicAttack', name: '魔法攻撃' },
     passives: [],
-    description: '魔力が高い。魔法攻撃は敵の防御を無視する。',
+    description: '魔力が高い。戦闘コマンド「魔法攻撃」は敵の防御を無視する。',
   },
   paladin: {
     id: 'paladin',
@@ -74,7 +74,7 @@ export const jobs: Record<JobId, JobDef> = {
     statBonus: { maxHp: 6, strength: 3, agility: 2, magic: 3, luck: 2 },
     activeSkill: { id: 'selfHeal', name: '自己回復' },
     passives: [],
-    description: '全体的に高水準の最上位職。自らの傷を癒せる。',
+    description: '全体的に高水準の最上位職。戦闘コマンド「自己回復」で傷を癒せる。',
   },
 };
 
