@@ -1,4 +1,4 @@
-import { legacies, type LegacyDef } from '../data/legacies';
+import { legacies, type LegacyDef, type LegacyStatBonus } from '../data/legacies';
 import type { ItemId, MetaState } from './types';
 
 /**
@@ -46,19 +46,25 @@ export function shopPrice(meta: MetaState, basePrice: number): number {
   return Math.max(1, price);
 }
 
-/** 来世の開始時ボーナス（startingGold / startingItem レガシーを合算） */
+/** 来世の開始時ボーナス（startingGold / startingItem / statBonus レガシーを合算） */
 export function startingBonuses(meta: MetaState): {
   gold: number;
   items: Partial<Record<ItemId, number>>;
+  stats: Required<LegacyStatBonus>;
 } {
   let gold = 0;
   const items: Partial<Record<ItemId, number>> = {};
+  const stats: Required<LegacyStatBonus> = { maxHp: 0, strength: 0, agility: 0, magic: 0, luck: 0 };
   for (const legacy of unlockedDefs(meta)) {
     if (legacy.effect.kind === 'startingGold') {
       gold += legacy.effect.amount;
     } else if (legacy.effect.kind === 'startingItem') {
       items[legacy.effect.itemId] = (items[legacy.effect.itemId] ?? 0) + legacy.effect.count;
+    } else if (legacy.effect.kind === 'statBonus') {
+      for (const key of Object.keys(stats) as (keyof LegacyStatBonus)[]) {
+        stats[key] += legacy.effect.stats[key] ?? 0;
+      }
     }
   }
-  return { gold, items };
+  return { gold, items, stats };
 }

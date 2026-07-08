@@ -7,7 +7,7 @@ import { soulTexts } from '../data/texts/souls';
 import { townTexts } from '../data/texts/town';
 import { advanceAge } from './aging';
 import { applyCombatAction } from './combatActions';
-import { applyJobBonus, rollLifespan, rollStartingGold, rollStats } from './creation';
+import { applyJobBonus, applyStatBonus, rollLifespan, rollStartingGold, rollStats } from './creation';
 import { applyDungeonAction, enterDungeon } from './dungeonActions';
 import { noop, requireLife } from './helpers';
 import { newlyUnlockedLegacies, shopPrice, startingBonuses } from './legacies';
@@ -140,7 +140,8 @@ function applyActionInner(state: GameState, action: GameAction): ActionResult {
       const life: LifeState = {
         character: {
           jobId: job.id,
-          stats: applyJobBonus(c.stats, job),
+          // 職業補正に加えて、レガシーのステータス補正（来世への恩恵）を乗せる
+          stats: applyStatBonus(applyJobBonus(c.stats, job), bonuses.stats),
           ageYears: startAge,
           gold,
           items: { ...bonuses.items },

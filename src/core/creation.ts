@@ -1,13 +1,13 @@
 import { balance } from '../data/balance';
 import type { JobDef } from '../data/jobs';
+import type { LegacyStatBonus } from '../data/legacies';
 import type { Rng } from './rng';
 import type { Stats } from './types';
 
 /** キャラ作成に関する純粋ロジック。年齢は startAge 固定でロールしない */
 
-/** ロールしたステータスに職業の補正を加える（HPは全快で開始） */
-export function applyJobBonus(stats: Stats, job: JobDef): Stats {
-  const b = job.statBonus;
+/** ステータスに補正を加える（職業・レガシーで共通。HPは全快で開始） */
+export function applyStatBonus(stats: Stats, b: Required<LegacyStatBonus>): Stats {
   const maxHp = stats.maxHp + b.maxHp;
   return {
     maxHp,
@@ -17,6 +17,11 @@ export function applyJobBonus(stats: Stats, job: JobDef): Stats {
     magic: stats.magic + b.magic,
     luck: stats.luck + b.luck,
   };
+}
+
+/** ロールしたステータスに職業の補正を加える */
+export function applyJobBonus(stats: Stats, job: JobDef): Stats {
+  return applyStatBonus(stats, job.statBonus);
 }
 
 function rollDice(rng: Rng, dice: { count: number; sides: number; bonus: number }): number {

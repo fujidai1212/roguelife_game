@@ -108,12 +108,19 @@ describe('applyLifeEndToMeta: メタ状態への反映', () => {
 
 describe('レガシー', () => {
   it('条件を満たすと解放候補になり、解放済みは再出現しない', () => {
-    const before = makeMeta({ bestDepth: 4 });
+    const before = makeMeta({ bestDepth: 3 });
     expect(newlyUnlockedLegacies(before).map((l) => l.id)).toEqual([]);
     const after = makeMeta({ bestDepth: 5 });
     expect(newlyUnlockedLegacies(after).map((l) => l.id)).toContain('depth5');
     const unlocked = makeMeta({ bestDepth: 5, unlockedLegacies: ['depth5'] });
     expect(newlyUnlockedLegacies(unlocked).map((l) => l.id)).not.toContain('depth5');
+  });
+
+  it('ステータス補正のレガシーが開始時ボーナスに合算される', () => {
+    const bonus = startingBonuses(makeMeta({ unlockedLegacies: ['depth4hp', 'depth8hp', 'midBoss3'] }));
+    expect(bonus.stats.maxHp).toBe(25);
+    expect(bonus.stats.strength).toBe(3);
+    expect(bonus.stats.agility).toBe(0);
   });
 
   it('道具屋の割引が価格に反映される', () => {
