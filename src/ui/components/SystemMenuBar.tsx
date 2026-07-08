@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { uiTexts } from '../../data/texts/ui';
 import { colors, fontSizes, spacing } from '../theme';
 
 export type SystemMenuId = 'status' | 'pause' | 'settings';
@@ -8,11 +9,9 @@ interface Props {
   onSelect: (id: SystemMenuId) => void;
 }
 
-const items: { id: SystemMenuId; label: string }[] = [
-  { id: 'status', label: 'ステータス' },
-  { id: 'pause', label: '中断' },
-  { id: 'settings', label: '設定' },
-];
+const items: { id: SystemMenuId; label: string }[] = (
+  ['status', 'pause', 'settings'] as const
+).map((id) => ({ id, label: uiTexts.systemLabels[id] }));
 
 /** 右上隅のシステムボタン列（GAME_DESIGN.md UI方針） */
 export function SystemMenuBar({ onSelect }: Props) {
