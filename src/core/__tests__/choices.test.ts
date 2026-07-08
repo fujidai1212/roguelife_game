@@ -21,7 +21,13 @@ describe('getChoices: 場面ごとの選択肢', () => {
     ]);
 
     const job = applyAction(state, { type: 'creation/confirmStats' }).state;
-    expect(getChoices(job).map((b) => b.action.type)).toEqual(['creation/chooseJob']);
+    const jobChoices = getChoices(job);
+    // 職業は5種（未解放は無効ボタンとして見える）。魂0なので無職以外は押せない
+    expect(jobChoices).toHaveLength(5);
+    expect(jobChoices.every((b) => b.action.type === 'creation/chooseJob')).toBe(true);
+    expect(jobChoices.filter((b) => !b.choice.disabled).map((b) => b.choice.id)).toEqual([
+      'job-jobless',
+    ]);
   });
 
   it('振り直しボタンは残り回数を表示し、使い切ると無効になる', () => {

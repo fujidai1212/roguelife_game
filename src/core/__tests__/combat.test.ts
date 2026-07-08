@@ -22,6 +22,8 @@ function makeLife(overrides: Partial<LifeState> = {}): LifeState {
     lifespanYears: 70,
     scene: 'combat',
     alive: true,
+    kills: 0,
+    maxDepth: 1,
     dungeon: { depth: 1, nodes: [], currentNodeId: 0 },
     ...overrides,
   };

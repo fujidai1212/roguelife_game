@@ -18,6 +18,8 @@ function makeLife(overrides: Partial<LifeState> = {}): LifeState {
     lifespanYears: 70,
     scene: 'town',
     alive: true,
+    kills: 0,
+    maxDepth: 0,
     ...overrides,
   };
 }

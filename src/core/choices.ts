@@ -1,9 +1,11 @@
 import { balance } from '../data/balance';
 import { items, shopStock } from '../data/items';
+import { jobOrder, jobs } from '../data/jobs';
 import { creationTexts } from '../data/texts/creation';
 import { dungeonTexts } from '../data/texts/dungeon';
 import { lifeTexts } from '../data/texts/life';
 import { townTexts } from '../data/texts/town';
+import { shopPrice } from './legacies';
 import type { ChoiceBinding, GameAction, GameState, LifeState, TownDest } from './types';
 
 /** 町のハブに並べる行き先。この順で左カラム4つ→右カラム4つに割り当てる */
@@ -44,12 +46,21 @@ export function getChoices(state: GameState): ChoiceBinding[] {
         ];
       }
       case 'job':
-        return [
-          bind('jobless', creationTexts.choices.jobless, {
-            type: 'creation/chooseJob',
-            jobId: 'jobless',
-          }),
-        ];
+        // 解放済みはそのまま選択、未解放は魂を消費して解放（足りなければ押せない）
+        return jobOrder.map((jobId) => {
+          const job = jobs[jobId];
+          const unlocked = state.meta.unlockedJobs.includes(jobId);
+          return {
+            choice: {
+              id: `job-${jobId}`,
+              label: unlocked
+                ? job.name
+                : creationTexts.choices.lockedJob(job.name, job.unlockCost),
+              disabled: !unlocked && state.meta.souls < job.unlockCost,
+            },
+            action: { type: 'creation/chooseJob', jobId },
+          };
+        });
       default:
         return [];
     }
@@ -73,10 +84,11 @@ export function getChoices(state: GameState): ChoiceBinding[] {
     case 'itemShop':
       return [
         ...shopStock.map((itemId) =>
-          bind(`buy-${itemId}`, townTexts.shop.choices.buy(items[itemId].name, items[itemId].price), {
-            type: 'shop/buy',
-            itemId,
-          }),
+          bind(
+            `buy-${itemId}`,
+            townTexts.shop.choices.buy(items[itemId].name, shopPrice(state.meta, items[itemId].price)),
+            { type: 'shop/buy', itemId },
+          ),
         ),
         bind('leave', townTexts.shop.choices.leave, { type: 'scene/backToTown' }),
       ];
@@ -90,6 +102,20 @@ export function getChoices(state: GameState): ChoiceBinding[] {
         ),
         bind('leave', townTexts.work.choices.backToTown, { type: 'scene/backToTown' }),
       ];
+    case 'church':
+    case 'guild': {
+      if (life.retireConfirm) {
+        return [
+          bind('retire-confirm', townTexts.retire.choices.confirm, { type: 'retire/confirm' }),
+          bind('retire-cancel', townTexts.retire.choices.cancel, { type: 'retire/cancel' }),
+        ];
+      }
+      const texts = life.scene === 'church' ? townTexts.church : townTexts.guild;
+      return [
+        bind('retire-ask', texts.choices.retire, { type: 'retire/ask' }),
+        bind('leave', texts.choices.leave, { type: 'scene/backToTown' }),
+      ];
+    }
     case 'dungeon':
       return dungeonChoices(life);
     case 'camp':
@@ -141,16 +167,21 @@ function dungeonChoices(life: LifeState): ChoiceBinding[] {
   });
 }
 
-/** 戦闘中の選択肢: メインコマンド or アイテムメニュー */
+/** 戦闘中の選択肢: メインコマンド（職業にスキルがあれば追加）or アイテムメニュー */
 function combatChoices(life: LifeState): ChoiceBinding[] {
   const combat = life.combat;
   if (!combat) return [];
   if (combat.menu === 'main') {
-    return [
-      bind('attack', dungeonTexts.combat.choices.attack, { type: 'combat/attack' }),
+    const main = [bind('attack', dungeonTexts.combat.choices.attack, { type: 'combat/attack' })];
+    const skill = jobs[life.character.jobId].activeSkill;
+    if (skill) {
+      main.push(bind('skill', skill.name, { type: 'combat/skill' }));
+    }
+    main.push(
       bind('items', dungeonTexts.combat.choices.items, { type: 'combat/itemsOpen' }),
       bind('flee', dungeonTexts.combat.choices.flee, { type: 'combat/flee' }),
-    ];
+    );
+    return main;
   }
   return [
     ...ownedItems(life).map(({ itemId, count }) =>

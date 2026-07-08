@@ -127,7 +127,7 @@ describe('町のアクション', () => {
 
   it('未実装の行き先へは移動できず、その場に留まる', () => {
     const state = startLife();
-    const result = applyAction(state, { type: 'town/go', dest: 'guild' });
+    const result = applyAction(state, { type: 'town/go', dest: 'weaponShop' });
     expect(result.state.life!.scene).toBe('town');
     expect(result.logs.length).toBeGreaterThan(0);
   });

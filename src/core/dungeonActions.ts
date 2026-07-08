@@ -35,9 +35,13 @@ export type DungeonAction = Extract<
 export function enterDungeon(state: GameState, life: LifeState, rng: Rng): ActionResult {
   const nodes = generateFloor(rng);
   const dungeon: DungeonState = { depth: 1, nodes, currentNodeId: nodes[0].id };
-  return commit(state, rng.getState(), { ...life, scene: 'dungeon', dungeon }, [
-    dungeonTexts.enter(1),
-  ]);
+  const entered: LifeState = {
+    ...life,
+    scene: 'dungeon',
+    dungeon,
+    maxDepth: Math.max(life.maxDepth, 1),
+  };
+  return commit(state, rng.getState(), entered, [dungeonTexts.enter(1)]);
 }
 
 export function applyDungeonAction(
@@ -159,6 +163,7 @@ export function applyDungeonAction(
         ...aged.life,
         scene: 'dungeon',
         dungeon: { depth, nodes, currentNodeId: nodes[0].id },
+        maxDepth: Math.max(aged.life.maxDepth, depth),
       };
       return commit(state, rng.getState(), descended, [
         ...aged.logs,

@@ -1,23 +1,39 @@
 import { balance } from '../data/balance';
 import { items } from '../data/items';
+import { jobs } from '../data/jobs';
 import { rumors } from '../data/rumors';
 import { creationTexts } from '../data/texts/creation';
+import { soulTexts } from '../data/texts/souls';
 import { townTexts } from '../data/texts/town';
 import { advanceAge } from './aging';
 import { applyCombatAction } from './combatActions';
-import { rollLifespan, rollStartingGold, rollStats } from './creation';
+import { applyJobBonus, rollLifespan, rollStartingGold, rollStats } from './creation';
 import { applyDungeonAction, enterDungeon } from './dungeonActions';
 import { noop, requireLife } from './helpers';
+import { newlyUnlockedLegacies, shopPrice, startingBonuses } from './legacies';
 import { restoreRng, type Rng } from './rng';
-import type { ActionResult, GameAction, GameState, LifeState, TownDest } from './types';
+import { applyLifeEndToMeta, settleLife } from './souls';
+import type { ActionResult, GameAction, GameState, LifeState, MetaState, TownDest } from './types';
 
 /** 実装済みの町の施設。それ以外は「未実装」表示になる */
-const implementedDests: TownDest[] = ['tavern', 'itemShop', 'work', 'dungeon'];
+const implementedDests: TownDest[] = ['tavern', 'itemShop', 'work', 'church', 'guild', 'dungeon'];
 
-/** 新しいゲーム（キャラ作成から）を開始する */
-export function newGame(seed: number): ActionResult {
+/** まっさらなメタ状態（初回起動時） */
+export function initialMeta(): MetaState {
+  return {
+    souls: 0,
+    unlockedJobs: ['jobless'],
+    unlockedLegacies: [],
+    totalDeaths: 0,
+    totalKills: 0,
+    bestDepth: 0,
+  };
+}
+
+/** 新しいゲーム（キャラ作成から）を開始する。meta はセーブから引き継げる */
+export function newGame(seed: number, meta: MetaState = initialMeta()): ActionResult {
   const rng = restoreRng(seed);
-  return startCreation({ phase: 'creation', meta: { souls: 0, unlockedJobs: ['jobless'], totalDeaths: 0 }, rngState: rng.getState() }, rng);
+  return startCreation({ phase: 'creation', meta, rngState: rng.getState() }, rng);
 }
 
 function startCreation(base: GameState, rng: Rng): ActionResult {
@@ -35,8 +51,31 @@ function startCreation(base: GameState, rng: Rng): ActionResult {
 /**
  * ゲーム進行の中核。純粋関数: 同じ state と action からは必ず同じ結果になる
  * （乱数の状態も state に含まれるため）。
+ * アクションの結果、人生が終わっていたら魂精算とレガシー判定を自動で行う。
  */
 export function applyAction(state: GameState, action: GameAction): ActionResult {
+  return settleIfLifeEnded(state, applyActionInner(state, action));
+}
+
+/** 人生が「生存→終了」に変わった直後に一度だけ、魂精算・メタ更新・レガシー判定を行う */
+function settleIfLifeEnded(before: GameState, result: ActionResult): ActionResult {
+  const life = result.state.life;
+  if (!before.life?.alive || !life || life.alive || life.settlement) return result;
+
+  const settlement = settleLife(life);
+  let meta = applyLifeEndToMeta(result.state.meta, life, settlement);
+  const logs = [
+    ...result.logs,
+    soulTexts.settlement(soulTexts.tierNames[settlement.tier], settlement.souls, meta.souls),
+  ];
+  for (const legacy of newlyUnlockedLegacies(meta)) {
+    meta = { ...meta, unlockedLegacies: [...meta.unlockedLegacies, legacy.id] };
+    logs.push(soulTexts.legacyUnlocked(legacy.name, legacy.description));
+  }
+  return { state: { ...result.state, meta, life: { ...life, settlement } }, logs };
+}
+
+function applyActionInner(state: GameState, action: GameAction): ActionResult {
   const rng = restoreRng(state.rngState);
 
   switch (action.type) {
@@ -58,30 +97,49 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
       if (state.phase !== 'creation' || state.creation?.step !== 'stats') return noop(state);
       return {
         state: { ...state, creation: { ...state.creation, step: 'job' } },
-        logs: [creationTexts.jobPrompt],
+        logs: [creationTexts.jobPrompt(state.meta.souls)],
       };
     }
 
     case 'creation/chooseJob': {
       const c = state.creation;
       if (state.phase !== 'creation' || c?.step !== 'job' || !c.stats) return noop(state);
-      const gold = rollStartingGold(rng);
+      const job = jobs[action.jobId];
+      let meta = state.meta;
+      const logs: string[] = [];
+
+      // 未解放の職業は魂を消費して解放する（以後の来世でも選べる）
+      if (!meta.unlockedJobs.includes(job.id)) {
+        if (meta.souls < job.unlockCost) return noop(state);
+        meta = {
+          ...meta,
+          souls: meta.souls - job.unlockCost,
+          unlockedJobs: [...meta.unlockedJobs, job.id],
+        };
+        logs.push(creationTexts.jobUnlocked(job.name, job.unlockCost));
+      }
+
+      const bonuses = startingBonuses(meta);
+      const gold = rollStartingGold(rng) + bonuses.gold;
       const startAge = balance.creation.startAge;
       const life: LifeState = {
         character: {
-          jobId: action.jobId,
-          stats: c.stats,
+          jobId: job.id,
+          stats: applyJobBonus(c.stats, job),
           ageYears: startAge,
           gold,
-          items: {},
+          items: { ...bonuses.items },
         },
         lifespanYears: rollLifespan(rng),
         scene: 'town',
         alive: true,
+        kills: 0,
+        maxDepth: 0,
       };
+      logs.push(creationTexts.jobChosen[job.id], creationTexts.lifeStart(startAge, gold), townTexts.hub);
       return {
-        state: { ...state, phase: 'life', creation: undefined, life, rngState: rng.getState() },
-        logs: [creationTexts.jobChosen, creationTexts.lifeStart(startAge, gold), townTexts.hub],
+        state: { ...state, phase: 'life', creation: undefined, life, meta, rngState: rng.getState() },
+        logs,
       };
     }
 
@@ -94,6 +152,8 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
       if (action.dest === 'dungeon') return enterDungeon(state, life, rng);
       if (action.dest === 'tavern') return moveTo(state, life, 'tavern', townTexts.tavern.enter);
       if (action.dest === 'itemShop') return moveTo(state, life, 'itemShop', townTexts.shop.enter);
+      if (action.dest === 'church') return moveTo(state, life, 'church', townTexts.church.enter);
+      if (action.dest === 'guild') return moveTo(state, life, 'guild', townTexts.guild.enter);
       return moveTo(state, life, 'work', townTexts.work.enter);
     }
 
@@ -141,7 +201,8 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
       const life = requireLife(state, 'itemShop');
       if (!life) return noop(state);
       const item = items[action.itemId];
-      if (life.character.gold < item.price) {
+      const price = shopPrice(state.meta, item.price); // レガシーの割引を適用
+      if (life.character.gold < price) {
         return { state, logs: [townTexts.shop.noMoney(item.name)] };
       }
       const owned = life.character.items[item.id] ?? 0;
@@ -149,28 +210,68 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
         ...life,
         character: {
           ...life.character,
-          gold: life.character.gold - item.price,
+          gold: life.character.gold - price,
           items: { ...life.character.items, [item.id]: owned + 1 },
         },
       };
       return {
         state: { ...state, life: bought },
-        logs: [townTexts.shop.bought(item.name, item.price)],
+        logs: [townTexts.shop.bought(item.name, price)],
       };
     }
 
     case 'scene/backToTown': {
       const life = requireLife(state);
       // 「店を出る」系のボタンからのみ使う。ダンジョン内からの帰還は別アクション
-      if (!life || !['tavern', 'itemShop', 'work'].includes(life.scene)) return noop(state);
+      if (!life || !['tavern', 'itemShop', 'work', 'church', 'guild'].includes(life.scene)) {
+        return noop(state);
+      }
+      if (life.retireConfirm) return noop(state);
       return moveTo(state, life, 'town', townTexts.backToTown, townTexts.hub);
+    }
+
+    case 'retire/ask': {
+      const life = requireLife(state);
+      if (!life || (life.scene !== 'church' && life.scene !== 'guild') || life.retireConfirm) {
+        return noop(state);
+      }
+      return {
+        state: { ...state, life: { ...life, retireConfirm: true } },
+        logs: [townTexts.retire.ask],
+      };
+    }
+
+    case 'retire/cancel': {
+      const life = requireLife(state);
+      if (!life || !life.retireConfirm) return noop(state);
+      return {
+        state: { ...state, life: { ...life, retireConfirm: undefined } },
+        logs: [townTexts.retire.cancel],
+      };
+    }
+
+    case 'retire/confirm': {
+      const life = requireLife(state);
+      if (!life || !life.retireConfirm) return noop(state);
+      // 引退は死ではないが人生の終わり。魂精算は applyAction の共通フックが行う
+      const ended: LifeState = {
+        ...life,
+        retireConfirm: undefined,
+        alive: false,
+        deathCause: 'retired',
+        scene: 'death',
+      };
+      return {
+        state: { ...state, life: ended },
+        logs: [townTexts.retire.done(Math.floor(life.character.ageYears))],
+      };
     }
 
     case 'death/reincarnate': {
       const life = state.life;
       if (state.phase !== 'life' || !life || life.alive) return noop(state);
-      const meta = { ...state.meta, totalDeaths: state.meta.totalDeaths + 1 };
-      return startCreation({ ...state, meta }, rng);
+      // 死亡数・魂は人生終了時の精算フックで反映済み
+      return startCreation(state, rng);
     }
 
     case 'dungeon/advance':
@@ -184,6 +285,7 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
       return applyDungeonAction(state, action, rng);
 
     case 'combat/attack':
+    case 'combat/skill':
     case 'combat/itemsOpen':
     case 'combat/itemsClose':
     case 'combat/useItem':

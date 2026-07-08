@@ -1,9 +1,10 @@
 import { balance } from '../data/balance';
 import { enemies } from '../data/enemies';
 import { items } from '../data/items';
+import { jobs } from '../data/jobs';
 import { dungeonTexts } from '../data/texts/dungeon';
 import { townTexts } from '../data/texts/town';
-import { fleeChance, resolveEnemyAttack, resolvePlayerAttack } from './combat';
+import { fleeChance, playerActsFirst, resolveEnemyAttack, resolvePlayerAttack } from './combat';
 import { commit, noop, payAge, requireLife } from './helpers';
 import type { Rng } from './rng';
 import type { ActionResult, CombatState, GameAction, GameState, LifeState } from './types';
@@ -14,6 +15,7 @@ export type CombatAction = Extract<
   {
     type:
       | 'combat/attack'
+      | 'combat/skill'
       | 'combat/itemsOpen'
       | 'combat/itemsClose'
       | 'combat/useItem'
@@ -39,7 +41,31 @@ export function applyCombatAction(state: GameState, action: CombatAction, rng: R
       if (combat.menu !== 'main') return noop(state);
       const aged = payAge(life, balance.ageCosts.combatTurn);
       if (aged.died) return commit(state, rng.getState(), aged.life, aged.logs);
-      return resolveRound(state, rng, aged.life, combat, aged.logs);
+      return resolveRound(state, rng, aged.life, combat, aged.logs, 'attack');
+    }
+
+    case 'combat/skill': {
+      if (combat.menu !== 'main') return noop(state);
+      const skill = jobs[life.character.jobId].activeSkill;
+      if (!skill) return noop(state);
+      const aged = payAge(life, balance.ageCosts.combatTurn);
+      if (aged.died) return commit(state, rng.getState(), aged.life, aged.logs);
+
+      if (skill.id === 'magicAttack') {
+        return resolveRound(state, rng, aged.life, combat, aged.logs, 'magic');
+      }
+      // 自己回復: 回復にターンを使い、敵の攻撃を受ける
+      const healed = healPlayer(
+        aged.life,
+        Math.round(aged.life.character.stats.maxHp * balance.skills.selfHealFraction),
+      );
+      const logs = [...aged.logs, dungeonTexts.combat.selfHealed(healed.amount)];
+      const hit = resolveEnemyAttack(rng, healed.life, combat.enemy);
+      if (hit.died) return commit(state, rng.getState(), hit.life, [...logs, ...hit.logs]);
+      return commit(state, rng.getState(), withMenu(hit.life, combat, 'main'), [
+        ...logs,
+        ...hit.logs,
+      ]);
     }
 
     case 'combat/flee': {
@@ -96,16 +122,17 @@ export function applyCombatAction(state: GameState, action: CombatAction, rng: R
   }
 }
 
-/** 攻撃コマンド1回ぶん（素早さ順に両者が行動）を解決する */
+/** 攻撃/魔法攻撃コマンド1回ぶん（素早さ順に両者が行動）を解決する */
 function resolveRound(
   state: GameState,
   rng: Rng,
   life: LifeState,
   combat: CombatState,
   logs: string[],
+  mode: 'attack' | 'magic',
 ): ActionResult {
   let enemy = combat.enemy;
-  const playerFirst = life.character.stats.agility >= enemy.agility;
+  const playerFirst = playerActsFirst(life, enemy);
 
   if (!playerFirst) {
     const hit = resolveEnemyAttack(rng, life, enemy);
@@ -114,13 +141,14 @@ function resolveRound(
     life = hit.life;
   }
 
-  const attack = resolvePlayerAttack(rng, life, enemy);
+  const attack = resolvePlayerAttack(rng, life, enemy, mode);
   enemy = attack.enemy;
   logs = [...logs, ...attack.logs];
   if (enemy.hp <= 0) {
     const gold = rng.int(enemy.goldMin, enemy.goldMax);
     const rewarded: LifeState = {
       ...life,
+      kills: life.kills + 1,
       character: { ...life.character, gold: life.character.gold + gold },
     };
     return commit(state, rng.getState(), endCombat(rewarded, combat), [

@@ -24,9 +24,18 @@ function makeState(statOverrides: Partial<Stats> = {}, lifeOverrides: Partial<Li
       lifespanYears: 75,
       scene: 'town',
       alive: true,
+      kills: 0,
+      maxDepth: 0,
       ...lifeOverrides,
     },
-    meta: { souls: 0, unlockedJobs: ['jobless'], totalDeaths: 0 },
+    meta: {
+      souls: 0,
+      unlockedJobs: ['jobless'],
+      unlockedLegacies: [],
+      totalDeaths: 0,
+      totalKills: 0,
+      bestDepth: 0,
+    },
     rngState: 12345,
   };
 }
