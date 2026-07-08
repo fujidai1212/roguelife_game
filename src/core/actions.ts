@@ -13,10 +13,19 @@ import { noop, requireLife } from './helpers';
 import { newlyUnlockedLegacies, shopPrice, startingBonuses } from './legacies';
 import { restoreRng, type Rng } from './rng';
 import { applyLifeEndToMeta, settleLife } from './souls';
+import { applyTownRiskAction, enterGuild } from './townActions';
 import type { ActionResult, GameAction, GameState, LifeState, MetaState, TownDest } from './types';
 
 /** 実装済みの町の施設。それ以外は「未実装」表示になる */
-const implementedDests: TownDest[] = ['tavern', 'itemShop', 'work', 'church', 'guild', 'dungeon'];
+const implementedDests: TownDest[] = [
+  'tavern',
+  'itemShop',
+  'work',
+  'church',
+  'guild',
+  'alley',
+  'dungeon',
+];
 
 /** まっさらなメタ状態（初回起動時） */
 export function initialMeta(): MetaState {
@@ -139,6 +148,7 @@ function applyActionInner(state: GameState, action: GameAction): ActionResult {
         alive: true,
         kills: 0,
         maxDepth: 0,
+        bonusSouls: 0,
       };
       logs.push(creationTexts.jobChosen[job.id], creationTexts.lifeStart(startAge, gold), townTexts.hub);
       return {
@@ -157,7 +167,8 @@ function applyActionInner(state: GameState, action: GameAction): ActionResult {
       if (action.dest === 'tavern') return moveTo(state, life, 'tavern', townTexts.tavern.enter);
       if (action.dest === 'itemShop') return moveTo(state, life, 'itemShop', townTexts.shop.enter);
       if (action.dest === 'church') return moveTo(state, life, 'church', townTexts.church.enter);
-      if (action.dest === 'guild') return moveTo(state, life, 'guild', townTexts.guild.enter);
+      if (action.dest === 'guild') return enterGuild(state, life, rng);
+      if (action.dest === 'alley') return moveTo(state, life, 'alley', townTexts.alley.enter);
       return moveTo(state, life, 'work', townTexts.work.enter);
     }
 
@@ -227,7 +238,7 @@ function applyActionInner(state: GameState, action: GameAction): ActionResult {
     case 'scene/backToTown': {
       const life = requireLife(state);
       // 「店を出る」系のボタンからのみ使う。ダンジョン内からの帰還は別アクション
-      if (!life || !['tavern', 'itemShop', 'work', 'church', 'guild'].includes(life.scene)) {
+      if (!life || !['tavern', 'itemShop', 'work', 'church', 'guild', 'alley'].includes(life.scene)) {
         return noop(state);
       }
       if (life.retireConfirm) return noop(state);
@@ -281,12 +292,26 @@ function applyActionInner(state: GameState, action: GameAction): ActionResult {
     case 'dungeon/advance':
     case 'dungeon/chest':
     case 'dungeon/fountain':
+    case 'dungeon/trash':
+    case 'dungeon/merchantBuy':
+    case 'dungeon/merchantSteal':
+    case 'dungeon/merchantLeave':
     case 'dungeon/useItem':
     case 'dungeon/retreat':
     case 'retreat/step':
     case 'camp/sleep':
     case 'camp/rest':
       return applyDungeonAction(state, action, rng);
+
+    case 'shop/steal':
+    case 'jail/serve':
+    case 'jail/escape':
+    case 'alley/job':
+    case 'tavern/cards':
+    case 'tavern/roulette':
+    case 'guild/accept':
+    case 'guild/report':
+      return applyTownRiskAction(state, action, rng);
 
     case 'combat/attack':
     case 'combat/skill':

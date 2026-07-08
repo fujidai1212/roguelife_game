@@ -1,7 +1,23 @@
+import { balance } from '../data/balance';
+import { jobs } from '../data/jobs';
 import { advanceAge } from './aging';
 import type { ActionResult, GameState, LifeState } from './types';
 
 /** アクションハンドラ間で共有する小さなヘルパー群 */
+
+/**
+ * 盗みの成功率（道具屋・行商人で共通）。
+ * 素早さと運が高いほど、安い品ほど成功しやすい。盗賊はさらに有利。
+ */
+export function stealSuccessChance(life: LifeState, itemPrice: number): number {
+  const t = balance.theft;
+  const { agility, luck } = life.character.stats;
+  const thiefBonus = jobs[life.character.jobId].passives.includes('stealBonus')
+    ? t.thiefBonus
+    : 0;
+  const chance = t.base + (agility + luck) * t.perPoint + thiefBonus - itemPrice * t.priceRisk;
+  return Math.min(t.max, Math.max(t.min, chance));
+}
 
 /** 死亡チェックつきで LifeState を取り出す。場面指定があれば一致も確認する */
 export function requireLife(state: GameState, scene?: LifeState['scene']): LifeState | null {
