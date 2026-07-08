@@ -1,6 +1,6 @@
 # HANDOVER.md — 開発引き継ぎ資料
 
-前任の Claude（Sonnet 5）から後任への引き継ぎ資料。2026年7月8日時点。
+前任の Claude（Fable 5）から後任への引き継ぎ資料。2026年7月8日時点。
 まず `CLAUDE.md` → `docs/GAME_DESIGN.md` → `docs/ROADMAP.md` を読んでから本書を読むこと。
 
 ---
