@@ -1,14 +1,21 @@
-import type { GameState, LogEntry } from './types';
+import type { GameState, LogEntry, MetaState } from './types';
 
 /**
  * セーブデータのシリアライズ/復元。純粋ロジックのみ。
  * 実際の保存先（AsyncStorage）は src/ui/ 側が担当する。
+ * メタ進行（魂・アンロック・統計）は人生セーブとは別領域に保存する
+ * （GAME_DESIGN.md セクション10）。人生セーブのバージョンが上がって
+ * 読めなくなっても、魂は失われない。
  */
 
 /** セーブデータの形式バージョン。互換性が壊れる変更をしたら+1する */
 // v2: 時間システムを「日数」から「年齢コスト」に変更（GAME_DESIGN.md セクション3）
 // v3: ダンジョン・戦闘の状態を追加（フェーズ2）
-export const SAVE_VERSION = 3;
+// v4: 魂精算・職業・レガシー・引退を追加（フェーズ3）
+export const SAVE_VERSION = 4;
+
+/** メタセーブの形式バージョン（人生セーブとは独立に管理する） */
+export const META_SAVE_VERSION = 1;
 
 export interface SaveData {
   version: number;
@@ -43,4 +50,36 @@ export function parseSave(json: string): SaveData | null {
   if (!Array.isArray(data.logs)) return null;
 
   return { version: SAVE_VERSION, state: data.state, logs: data.logs };
+}
+
+interface MetaSaveData {
+  version: number;
+  meta: MetaState;
+}
+
+export function serializeMeta(meta: MetaState): string {
+  const data: MetaSaveData = { version: META_SAVE_VERSION, meta };
+  return JSON.stringify(data);
+}
+
+/** メタセーブを復元する。壊れている・バージョン不一致なら null（初期メタで開始） */
+export function parseMeta(json: string): MetaState | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+
+  const data = parsed as Partial<MetaSaveData>;
+  if (data.version !== META_SAVE_VERSION) return null;
+  const meta = data.meta;
+  if (typeof meta !== 'object' || meta === null) return null;
+  if (typeof meta.souls !== 'number' || !Array.isArray(meta.unlockedJobs)) return null;
+  if (!Array.isArray(meta.unlockedLegacies)) return null;
+  if (typeof meta.totalDeaths !== 'number' || typeof meta.totalKills !== 'number') return null;
+  if (typeof meta.bestDepth !== 'number') return null;
+
+  return meta;
 }

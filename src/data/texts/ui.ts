@@ -7,6 +7,8 @@ export const uiTexts = {
     tavern: '酒場',
     itemShop: '道具屋',
     work: '働き口',
+    church: '教会',
+    guild: '冒険者ギルド',
     dungeon: 'ダンジョン',
     camp: '野営地',
     combat: '戦闘',

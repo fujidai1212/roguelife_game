@@ -2,12 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
 import { applyAction, newGame } from '../../core/actions';
-import { parseSave, serializeSave } from '../../core/save';
+import { parseMeta, parseSave, serializeMeta, serializeSave } from '../../core/save';
 import type { GameAction, GameState, LogEntry } from '../../core/types';
 import { uiTexts } from '../../data/texts/ui';
 
 /** AsyncStorage 上のセーブデータのキー */
 const SAVE_KEY = 'save';
+/** メタ進行（魂・アンロック・統計）は別キーに保存する（GAME_DESIGN.md セクション10） */
+const META_KEY = 'meta';
 /** 画面に保持するログの上限行数（超えた分は古い順に捨てる） */
 const MAX_LOG_ENTRIES = 200;
 
@@ -29,6 +31,7 @@ const toEntries = (logs: string[]): LogEntry[] => logs.map((text) => ({ id: next
 function persist(state: GameState, entries: LogEntry[]): void {
   // 失敗してもゲームは続行できるので待たない（次の保存で上書きされる）
   void AsyncStorage.setItem(SAVE_KEY, serializeSave(state, entries));
+  void AsyncStorage.setItem(META_KEY, serializeMeta(state.meta));
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
@@ -45,7 +48,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ state: data.state, entries: [...data.logs, ...toEntries([uiTexts.resumed])] });
       return;
     }
-    const result = newGame(Date.now());
+    // 人生セーブが無い/読めない場合でも、別キーのメタ（魂・アンロック）は引き継ぐ
+    const metaSaved = await AsyncStorage.getItem(META_KEY);
+    const meta = metaSaved !== null ? parseMeta(metaSaved) : null;
+    const result = meta ? newGame(Date.now(), meta) : newGame(Date.now());
     const entries = toEntries(result.logs);
     set({ state: result.state, entries });
     persist(result.state, entries);
