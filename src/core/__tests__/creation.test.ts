@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { balance } from '../../data/balance';
-import { applyAgeBonus, rollAge, rollLifespan, rollStartingGold, rollStats } from '../creation';
+import { rollLifespan, rollStartingGold, rollStats } from '../creation';
 import { createRng } from '../rng';
-import type { Stats } from '../types';
 
 const b = balance.creation;
 const SAMPLES = 200;
@@ -30,16 +29,7 @@ describe('rollStats', () => {
   });
 });
 
-describe('rollAge / rollLifespan / rollStartingGold', () => {
-  it('年齢が ageMin〜ageMax に収まる', () => {
-    const rng = createRng(2);
-    for (let i = 0; i < SAMPLES; i++) {
-      const age = rollAge(rng);
-      expect(age).toBeGreaterThanOrEqual(b.ageMin);
-      expect(age).toBeLessThanOrEqual(b.ageMax);
-    }
-  });
-
+describe('rollLifespan / rollStartingGold', () => {
   it('寿命が lifespanBase〜lifespanBase+lifespanRandomMax に収まる', () => {
     const rng = createRng(3);
     const { lifespanBase, lifespanRandomMax } = balance.aging;
@@ -60,28 +50,5 @@ describe('rollAge / rollLifespan / rollStartingGold', () => {
       expect(gold).toBeLessThanOrEqual(max);
       expect(gold % b.startingGoldMultiplier).toBe(0);
     }
-  });
-});
-
-describe('applyAgeBonus: 年上ほど初期ステータスが高い', () => {
-  const base: Stats = { maxHp: 25, hp: 25, strength: 8, agility: 8, magic: 8, luck: 8 };
-
-  it('最年少（ageMin）では補正なし', () => {
-    expect(applyAgeBonus(base, b.ageMin)).toEqual(base);
-  });
-
-  it('ageBonusPerYears 年ごとに全ステータス+1', () => {
-    const boosted = applyAgeBonus(base, b.ageMin + b.ageBonusPerYears * 2);
-    expect(boosted.strength).toBe(base.strength + 2);
-    expect(boosted.agility).toBe(base.agility + 2);
-    expect(boosted.magic).toBe(base.magic + 2);
-    expect(boosted.luck).toBe(base.luck + 2);
-    expect(boosted.maxHp).toBe(base.maxHp + 2);
-    expect(boosted.hp).toBe(base.hp + 2);
-  });
-
-  it('元のオブジェクトを変更しない（純粋関数）', () => {
-    applyAgeBonus(base, b.ageMax);
-    expect(base.strength).toBe(8);
   });
 });

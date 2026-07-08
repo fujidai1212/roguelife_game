@@ -2,7 +2,7 @@ import { balance } from '../data/balance';
 import type { Rng } from './rng';
 import type { Stats } from './types';
 
-/** キャラ作成に関する純粋ロジック */
+/** キャラ作成に関する純粋ロジック。年齢は startAge 固定でロールしない */
 
 function rollDice(rng: Rng, dice: { count: number; sides: number; bonus: number }): number {
   let total = dice.bonus;
@@ -23,26 +23,6 @@ export function rollStats(rng: Rng): Stats {
     agility: rollDice(rng, b.statDice),
     magic: rollDice(rng, b.statDice),
     luck: rollDice(rng, b.statDice),
-  };
-}
-
-/** 年齢をダイスで決める（16〜40歳） */
-export function rollAge(rng: Rng): number {
-  return rng.int(balance.creation.ageMin, balance.creation.ageMax);
-}
-
-/** 年上ほど初期ステータスに補正を加える（GAME_DESIGN.md セクション2） */
-export function applyAgeBonus(stats: Stats, ageYears: number): Stats {
-  const bonus = Math.floor((ageYears - balance.creation.ageMin) / balance.creation.ageBonusPerYears);
-  if (bonus <= 0) return stats;
-  return {
-    ...stats,
-    maxHp: stats.maxHp + bonus,
-    hp: stats.hp + bonus,
-    strength: stats.strength + bonus,
-    agility: stats.agility + bonus,
-    magic: stats.magic + bonus,
-    luck: stats.luck + bonus,
   };
 }
 

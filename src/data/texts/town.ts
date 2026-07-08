@@ -8,7 +8,7 @@ export const townTexts = {
     weaponShop: '武器屋・防具屋',
     itemShop: '道具屋',
     alley: '裏路地',
-    work: '日雇い労働',
+    work: '労働',
     church: '教会',
     dungeon: 'ダンジョン入口',
   },
@@ -31,10 +31,12 @@ export const townTexts = {
     },
   },
   work: {
-    enter: '日雇いの仕事はいつでもある。安く、きつく、命の危険がないだけましな仕事が。',
-    worked: (pay: number) => `荷運びで一日が潰れた。${pay}Gを得た。腰が痛い。`,
+    enter:
+      '仕事はいつでもある。安く、きつく、命の危険がないだけましな仕事が。人生の何年かを差し出せば、金にはなる。',
+    worked: (years: number, pay: number) =>
+      `働いた。気づけば${years}年が過ぎていた。手元には${pay}G。失った時間は戻らない。`,
     choices: {
-      labor: '一日働く',
+      labor: (years: number) => `${years}年働く`,
       backToTown: '町に戻る',
     },
   },

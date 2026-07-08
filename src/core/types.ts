@@ -23,6 +23,10 @@ export interface Stats {
 export interface Character {
   jobId: JobId;
   stats: Stats;
+  /**
+   * 年齢。行動の対価（年齢コスト）として小数で増えていく
+   * （GAME_DESIGN.md セクション3）。小数2桁で保持する。
+   */
   ageYears: number;
   gold: number;
   items: Partial<Record<ItemId, number>>;
@@ -45,10 +49,6 @@ export type SceneId = 'town' | 'tavern' | 'itemShop' | 'work' | 'death';
 /** 人生レイヤーの進行状態（1プレイぶん） */
 export interface LifeState {
   character: Character;
-  /** この人生で経過した日数 */
-  daysElapsed: number;
-  /** 加齢カウンタ（daysPerYear に達すると1歳加齢して0に戻る） */
-  daysIntoYear: number;
   /** 寿命（この年齢に達すると老衰死）。プレイヤーには見せない */
   lifespanYears: number;
   scene: SceneId;
@@ -56,11 +56,10 @@ export interface LifeState {
   deathCause?: 'oldAge';
 }
 
-/** キャラ作成フローの状態 */
+/** キャラ作成フローの状態（年齢は固定なのでステップは2つ） */
 export interface CreationState {
-  step: 'stats' | 'age' | 'job';
+  step: 'stats' | 'job';
   stats?: Stats;
-  ageYears?: number;
   rerollCount: number;
 }
 
@@ -85,11 +84,10 @@ export interface GameState {
 export type GameAction =
   | { type: 'creation/reroll' }
   | { type: 'creation/confirmStats' }
-  | { type: 'creation/confirmAge' }
   | { type: 'creation/chooseJob'; jobId: JobId }
   | { type: 'town/go'; dest: TownDest }
   | { type: 'tavern/rumor' }
-  | { type: 'work/labor' }
+  | { type: 'work/labor'; years: number }
   | { type: 'shop/buy'; itemId: ItemId }
   | { type: 'scene/backToTown' }
   | { type: 'death/reincarnate' };

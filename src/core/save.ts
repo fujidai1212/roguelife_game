@@ -6,7 +6,8 @@ import type { GameState, LogEntry } from './types';
  */
 
 /** セーブデータの形式バージョン。互換性が壊れる変更をしたら+1する */
-export const SAVE_VERSION = 1;
+// v2: 時間システムを「日数」から「年齢コスト」に変更（GAME_DESIGN.md セクション3）
+export const SAVE_VERSION = 2;
 
 export interface SaveData {
   version: number;

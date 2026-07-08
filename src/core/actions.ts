@@ -3,8 +3,8 @@ import { items } from '../data/items';
 import { rumors } from '../data/rumors';
 import { creationTexts } from '../data/texts/creation';
 import { townTexts } from '../data/texts/town';
-import { advanceDays } from './aging';
-import { applyAgeBonus, rollAge, rollLifespan, rollStartingGold, rollStats } from './creation';
+import { advanceAge } from './aging';
+import { rollLifespan, rollStartingGold, rollStats } from './creation';
 import { restoreRng, type Rng } from './rng';
 import type { ActionResult, GameAction, GameState, LifeState, TownDest } from './types';
 
@@ -39,6 +39,7 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
   switch (action.type) {
     case 'creation/reroll': {
       if (state.phase !== 'creation' || state.creation?.step !== 'stats') return noop(state);
+      if (state.creation.rerollCount >= balance.creation.rerollMax) return noop(state);
       const stats = rollStats(rng);
       return {
         state: {
@@ -52,19 +53,6 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
 
     case 'creation/confirmStats': {
       if (state.phase !== 'creation' || state.creation?.step !== 'stats') return noop(state);
-      const ageYears = rollAge(rng);
-      return {
-        state: {
-          ...state,
-          creation: { ...state.creation, step: 'age', ageYears },
-          rngState: rng.getState(),
-        },
-        logs: [creationTexts.ageRolled(ageYears)],
-      };
-    }
-
-    case 'creation/confirmAge': {
-      if (state.phase !== 'creation' || state.creation?.step !== 'age') return noop(state);
       return {
         state: { ...state, creation: { ...state.creation, step: 'job' } },
         logs: [creationTexts.jobPrompt],
@@ -73,27 +61,24 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
 
     case 'creation/chooseJob': {
       const c = state.creation;
-      if (state.phase !== 'creation' || c?.step !== 'job' || !c.stats || c.ageYears === undefined) {
-        return noop(state);
-      }
+      if (state.phase !== 'creation' || c?.step !== 'job' || !c.stats) return noop(state);
       const gold = rollStartingGold(rng);
+      const startAge = balance.creation.startAge;
       const life: LifeState = {
         character: {
           jobId: action.jobId,
-          stats: applyAgeBonus(c.stats, c.ageYears),
-          ageYears: c.ageYears,
+          stats: c.stats,
+          ageYears: startAge,
           gold,
           items: {},
         },
-        daysElapsed: 0,
-        daysIntoYear: 0,
         lifespanYears: rollLifespan(rng),
         scene: 'town',
         alive: true,
       };
       return {
         state: { ...state, phase: 'life', creation: undefined, life, rngState: rng.getState() },
-        logs: [creationTexts.jobChosen, creationTexts.lifeStart(gold), townTexts.hub],
+        logs: [creationTexts.jobChosen, creationTexts.lifeStart(startAge, gold), townTexts.hub],
       };
     }
 
@@ -120,26 +105,31 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
         ...life,
         character: { ...life.character, gold: life.character.gold - price },
       };
-      const logs = [townTexts.tavern.rumorHeard(rumor, price)];
-      const advanced = advanceDays(paid, 1);
+      const advanced = advanceAge(paid, balance.ageCosts.tavernRumor);
       return {
         state: { ...state, life: advanced.life, rngState: rng.getState() },
-        logs: [...logs, ...advanced.logs],
+        logs: [townTexts.tavern.rumorHeard(rumor, price), ...advanced.logs],
       };
     }
 
     case 'work/labor': {
       const life = requireLife(state, 'work');
       if (!life) return noop(state);
-      const pay = rng.int(balance.work.dayLaborPayMin, balance.work.dayLaborPayMax);
+      const w = balance.work;
+      const years = action.years;
+      if (!(w.durationChoicesYears as readonly number[]).includes(years)) return noop(state);
+      // 年あたり報酬は契約が長いほど逓増する（リターンはコストに比例: セクション3.1）
+      const payPerYear = rng.int(w.payPerYearMin, w.payPerYearMax);
+      const efficiency = 1 + w.efficiencyBonusPerExtraYear * (years - 1);
+      const pay = Math.round(payPerYear * years * efficiency);
       const paid: LifeState = {
         ...life,
         character: { ...life.character, gold: life.character.gold + pay },
       };
-      const advanced = advanceDays(paid, 1);
+      const advanced = advanceAge(paid, years);
       return {
         state: { ...state, life: advanced.life, rngState: rng.getState() },
-        logs: [townTexts.work.worked(pay), ...advanced.logs],
+        logs: [townTexts.work.worked(years, pay), ...advanced.logs],
       };
     }
 

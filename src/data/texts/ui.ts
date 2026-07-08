@@ -9,9 +9,9 @@ export const uiTexts = {
     work: '働き口',
     death: '人生の終わり',
   },
-  statusLine: (hp: number, maxHp: number, gold: number, age: number, days: number) =>
-    `HP ${hp}/${maxHp}　金 ${gold}G　${age}歳　${days}日目`,
-  statusLineEmpty: 'HP -/-　金 -G　年齢 -　日数 -',
+  statusLine: (hp: number, maxHp: number, gold: number, age: number) =>
+    `HP ${hp}/${maxHp}　金 ${gold}G　${age.toFixed(1)}歳`,
+  statusLineEmpty: 'HP -/-　金 -G　年齢 -',
   resumed: '（前回の続きから再開した。）',
   systemLabels: {
     status: 'ステータス',

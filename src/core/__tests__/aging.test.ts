@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { balance } from '../../data/balance';
-import { advanceDays } from '../aging';
+import { advanceAge, roundAge } from '../aging';
 import type { LifeState } from '../types';
 
-const { daysPerYear } = balance.time;
 const { declineStartAge, statLossPerYear, maxHpLossPerYear, statFloor } = balance.aging;
 
 function makeLife(overrides: Partial<LifeState> = {}): LifeState {
@@ -16,8 +15,6 @@ function makeLife(overrides: Partial<LifeState> = {}): LifeState {
       gold: 50,
       items: {},
     },
-    daysElapsed: 0,
-    daysIntoYear: 0,
     lifespanYears: 70,
     scene: 'town',
     alive: true,
@@ -25,46 +22,56 @@ function makeLife(overrides: Partial<LifeState> = {}): LifeState {
   };
 }
 
-describe('advanceDays: 日数進行', () => {
-  it('1日進めると経過日数と年内日数が1増える', () => {
-    const { life } = advanceDays(makeLife(), 1);
-    expect(life.daysElapsed).toBe(1);
-    expect(life.daysIntoYear).toBe(1);
+describe('advanceAge: 年齢コストの支払い', () => {
+  it('小数の年齢コストがそのまま加算される', () => {
+    const { life, logs } = advanceAge(makeLife(), 0.3);
+    expect(life.character.ageYears).toBe(20.3);
+    expect(logs).toEqual([]); // 誕生日を越えていないのでログなし
   });
 
-  it('daysPerYear 日で1歳加齢し、年内日数が0に戻る', () => {
-    const { life, logs } = advanceDays(makeLife(), daysPerYear);
+  it('小さなコストを繰り返しても誤差が蓄積しない（丸め）', () => {
+    let life = makeLife();
+    for (let i = 0; i < 10; i++) {
+      life = advanceAge(life, 0.1).life;
+    }
     expect(life.character.ageYears).toBe(21);
-    expect(life.daysIntoYear).toBe(0);
-    expect(logs.length).toBeGreaterThan(0);
   });
 
-  it('複数年ぶんまとめて進めても年齢が正しく増える', () => {
-    const { life } = advanceDays(makeLife(), daysPerYear * 3);
+  it('誕生日を越えると加齢ログが出る', () => {
+    const { life, logs } = advanceAge(makeLife(), 1);
+    expect(life.character.ageYears).toBe(21);
+    expect(logs.length).toBe(1);
+  });
+
+  it('複数年まとめて支払うと年数分の誕生日を通過する', () => {
+    const { life, logs } = advanceAge(makeLife(), 3);
     expect(life.character.ageYears).toBe(23);
-    expect(life.daysElapsed).toBe(daysPerYear * 3);
+    expect(logs.length).toBe(3);
   });
 
-  it('死亡している状態では日数が進まない', () => {
+  it('コスト0以下・死亡中は何も起きない', () => {
+    expect(advanceAge(makeLife(), 0).life.character.ageYears).toBe(20);
     const dead = makeLife({ alive: false, scene: 'death' });
-    const { life, logs } = advanceDays(dead, 10);
-    expect(life.daysElapsed).toBe(0);
+    const { life, logs } = advanceAge(dead, 5);
+    expect(life.character.ageYears).toBe(20);
     expect(logs).toEqual([]);
   });
 });
 
-describe('advanceDays: 加齢による衰え', () => {
-  it('declineStartAge 以下では衰えない', () => {
-    const young = makeLife({ character: { ...makeLife().character, ageYears: declineStartAge - 1 } });
-    const { life } = advanceDays(young, daysPerYear);
+describe('advanceAge: 加齢による衰え', () => {
+  it('declineStartAge 以下の誕生日では衰えない', () => {
+    const young = makeLife({
+      character: { ...makeLife().character, ageYears: declineStartAge - 1 },
+    });
+    const { life } = advanceAge(young, 1);
     expect(life.character.ageYears).toBe(declineStartAge);
     expect(life.character.stats.strength).toBe(10);
     expect(life.character.stats.maxHp).toBe(30);
   });
 
-  it('declineStartAge を超える加齢で力・素早さ・魔力・最大HPが減り、運は減らない', () => {
+  it('declineStartAge を超える誕生日で力・素早さ・魔力・最大HPが減り、運は減らない', () => {
     const old = makeLife({ character: { ...makeLife().character, ageYears: declineStartAge } });
-    const { life } = advanceDays(old, daysPerYear);
+    const { life } = advanceAge(old, 1);
     const s = life.character.stats;
     expect(life.character.ageYears).toBe(declineStartAge + 1);
     expect(s.strength).toBe(10 - statLossPerYear);
@@ -74,9 +81,17 @@ describe('advanceDays: 加齢による衰え', () => {
     expect(s.luck).toBe(10);
   });
 
+  it('小数コストの合計で誕生日を跨いだ場合も衰える', () => {
+    const old = makeLife({
+      character: { ...makeLife().character, ageYears: roundAge(declineStartAge + 0.9) },
+    });
+    const { life } = advanceAge(old, 0.2);
+    expect(life.character.stats.strength).toBe(10 - statLossPerYear);
+  });
+
   it('現在HPは減った最大HPを超えない', () => {
     const old = makeLife({ character: { ...makeLife().character, ageYears: declineStartAge } });
-    const { life } = advanceDays(old, daysPerYear);
+    const { life } = advanceAge(old, 1);
     expect(life.character.stats.hp).toBeLessThanOrEqual(life.character.stats.maxHp);
   });
 
@@ -85,7 +100,7 @@ describe('advanceDays: 加齢による衰え', () => {
       lifespanYears: 200,
       character: { ...makeLife().character, ageYears: declineStartAge },
     });
-    const { life } = advanceDays(old, daysPerYear * 50);
+    const { life } = advanceAge(old, 50);
     const s = life.character.stats;
     expect(s.strength).toBeGreaterThanOrEqual(statFloor);
     expect(s.agility).toBeGreaterThanOrEqual(statFloor);
@@ -94,25 +109,26 @@ describe('advanceDays: 加齢による衰え', () => {
   });
 });
 
-describe('advanceDays: 老衰死', () => {
+describe('advanceAge: 老衰死', () => {
   it('寿命の年齢に達すると死亡し、場面が death になる', () => {
     const nearEnd = makeLife({
       lifespanYears: 21,
-      character: { ...makeLife().character, ageYears: 20 },
+      character: { ...makeLife().character, ageYears: 20.5 },
     });
-    const { life, logs } = advanceDays(nearEnd, daysPerYear);
+    const { life, logs } = advanceAge(nearEnd, 1);
     expect(life.alive).toBe(false);
     expect(life.deathCause).toBe('oldAge');
     expect(life.scene).toBe('death');
     expect(logs.length).toBeGreaterThan(0);
   });
 
-  it('死亡した日以降は日数が進まない', () => {
+  it('大きな年齢コストを払っても、年齢は死亡した歳で止まる', () => {
     const nearEnd = makeLife({
       lifespanYears: 21,
       character: { ...makeLife().character, ageYears: 20 },
     });
-    const { life } = advanceDays(nearEnd, daysPerYear * 10);
-    expect(life.daysElapsed).toBe(daysPerYear);
+    const { life } = advanceAge(nearEnd, 10);
+    expect(life.character.ageYears).toBe(21);
+    expect(life.alive).toBe(false);
   });
 });

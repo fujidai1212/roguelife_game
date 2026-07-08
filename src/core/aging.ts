@@ -2,11 +2,19 @@ import { balance } from '../data/balance';
 import { lifeTexts } from '../data/texts/life';
 import type { LifeState } from './types';
 
-/** 日数・年齢の進行と、加齢による衰え・老衰死の純粋ロジック */
+/**
+ * 年齢コストの支払いと、加齢による衰え・老衰死の純粋ロジック
+ * （GAME_DESIGN.md セクション3）。
+ */
 
 interface AdvanceResult {
   life: LifeState;
   logs: string[];
+}
+
+/** 浮動小数の誤差が表示や判定に漏れないよう、年齢は小数2桁に丸めて保持する */
+export function roundAge(age: number): number {
+  return Math.round(age * 100) / 100;
 }
 
 /** 加齢による衰えを1歳ぶん適用する */
@@ -31,46 +39,37 @@ function applyDecline(life: LifeState): LifeState {
 }
 
 /**
- * 日数を進める。加齢(daysPerYear ごとに+1歳)・衰え・老衰死もここで処理する。
- * 死亡した場合は scene が 'death' になり、それ以上日数は進まない。
+ * 年齢コストを支払って歳を進める。整数年齢が上がる（誕生日を越える）たびに
+ * 衰え・老衰死を判定する。死亡した場合は scene が 'death' になり、
+ * 年齢は死亡した歳で止まる。
  */
-export function advanceDays(life: LifeState, days: number): AdvanceResult {
-  let current = life;
+export function advanceAge(life: LifeState, years: number): AdvanceResult {
+  if (!life.alive || years <= 0) return { life, logs: [] };
+
   const logs: string[] = [];
+  const targetAge = roundAge(life.character.ageYears + years);
+  let current = life;
 
-  for (let i = 0; i < days; i++) {
-    if (!current.alive) break;
+  // 越える誕生日を1歳ずつ処理する（例: 44.8歳 + 2.5歳 → 45歳・46歳・47歳を通過）
+  const firstBirthday = Math.floor(current.character.ageYears) + 1;
+  const lastBirthday = Math.floor(targetAge);
+  for (let age = firstBirthday; age <= lastBirthday; age++) {
+    current = { ...current, character: { ...current.character, ageYears: age } };
+    logs.push(lifeTexts.aged(age));
 
-    let daysIntoYear = current.daysIntoYear + 1;
-    let character = current.character;
-    current = { ...current, daysElapsed: current.daysElapsed + 1 };
-
-    if (daysIntoYear >= balance.time.daysPerYear) {
-      daysIntoYear = 0;
-      character = { ...character, ageYears: character.ageYears + 1 };
-      current = { ...current, character };
-      logs.push(lifeTexts.aged(character.ageYears));
-
-      if (character.ageYears > balance.aging.declineStartAge) {
-        current = applyDecline(current);
-        logs.push(lifeTexts.decline);
-      }
-
-      if (character.ageYears >= current.lifespanYears) {
-        current = {
-          ...current,
-          alive: false,
-          deathCause: 'oldAge',
-          scene: 'death',
-        };
-        logs.push(lifeTexts.deathOldAge(character.ageYears, current.daysElapsed));
-        logs.push(lifeTexts.deathSummary(character.gold));
-        break;
-      }
+    if (age > balance.aging.declineStartAge) {
+      current = applyDecline(current);
+      logs.push(lifeTexts.decline);
     }
 
-    current = { ...current, daysIntoYear };
+    if (age >= current.lifespanYears) {
+      current = { ...current, alive: false, deathCause: 'oldAge', scene: 'death' };
+      logs.push(lifeTexts.deathOldAge(age));
+      logs.push(lifeTexts.deathSummary(current.character.gold));
+      return { life: current, logs };
+    }
   }
 
+  current = { ...current, character: { ...current.character, ageYears: targetAge } };
   return { life: current, logs };
 }

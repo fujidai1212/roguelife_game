@@ -28,13 +28,20 @@ function bind(id: string, label: string, action: GameAction): ChoiceBinding {
 export function getChoices(state: GameState): ChoiceBinding[] {
   if (state.phase === 'creation') {
     switch (state.creation?.step) {
-      case 'stats':
+      case 'stats': {
+        const remaining = balance.creation.rerollMax - state.creation.rerollCount;
         return [
-          bind('reroll', creationTexts.choices.reroll, { type: 'creation/reroll' }),
+          {
+            choice: {
+              id: 'reroll',
+              label: creationTexts.choices.reroll(remaining),
+              disabled: remaining <= 0,
+            },
+            action: { type: 'creation/reroll' },
+          },
           bind('acceptStats', creationTexts.choices.acceptStats, { type: 'creation/confirmStats' }),
         ];
-      case 'age':
-        return [bind('acceptAge', creationTexts.choices.acceptAge, { type: 'creation/confirmAge' })];
+      }
       case 'job':
         return [
           bind('jobless', creationTexts.choices.jobless, {
@@ -74,7 +81,12 @@ export function getChoices(state: GameState): ChoiceBinding[] {
       ];
     case 'work':
       return [
-        bind('labor', townTexts.work.choices.labor, { type: 'work/labor' }),
+        ...balance.work.durationChoicesYears.map((years) =>
+          bind(`labor-${years}`, townTexts.work.choices.labor(years), {
+            type: 'work/labor',
+            years,
+          }),
+        ),
         bind('leave', townTexts.work.choices.backToTown, { type: 'scene/backToTown' }),
       ];
     case 'death':

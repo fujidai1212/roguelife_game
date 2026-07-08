@@ -24,13 +24,12 @@ function sceneName(state: GameState): string {
 
 function statusLine(state: GameState): string {
   if (state.phase !== 'life' || !state.life) return uiTexts.statusLineEmpty;
-  const { character, daysElapsed } = state.life;
+  const { character } = state.life;
   return uiTexts.statusLine(
     character.stats.hp,
     character.stats.maxHp,
     character.gold,
     character.ageYears,
-    daysElapsed,
   );
 }
 
