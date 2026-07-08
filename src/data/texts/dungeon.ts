@@ -29,6 +29,8 @@ export const dungeonTexts = {
       merchant: ['小さな明かりが揺れている', '金属の触れ合う音がする'],
       trap: ['床の色が違う気がする', '空気が張りつめている'],
       camp: ['焚き火の匂いがかすかにする', '灰の匂いがする'],
+      midBoss: ['巨大な何かの気配がする', '低い唸りが石壁を震わせている'],
+      boss: ['この先の闇は、質が違う', '空気そのものが重い。最深部だ'],
     } satisfies Record<DungeonNodeKind, string[]>,
   },
   arrive: {
@@ -44,6 +46,16 @@ export const dungeonTexts = {
     trash: 'ゴミの山だ。先人たちの成れの果てか。何か埋もれているかもしれない。',
     merchant: 'ランタンの下に行商人が座っていた。「いらっしゃい。ここの相場は、地上とは違うよ」',
     camp: '野営地を見つけた。焚き火の跡がある。ここなら眠れる。このフロアの探索はここまでだ。',
+    midBoss: (name: string) =>
+      `広間の奥で、${name}がこちらを見ていた。ここの主だ。こいつを越えなければ、先はない。`,
+    boss: (name: string) =>
+      `最深部。積み上がった骨の山の向こうで、${name}が目を開けた。ここまで来た者の名を、誰も知らない。`,
+  },
+  boss: {
+    midDefeated: (name: string) =>
+      `${name}は崩れ落ちた。広間に静寂が戻る。今夜は、ここの主はお前だ。`,
+    challengePrompt: '奥で、あれはまだ待っている。',
+    choices: { challenge: '再び挑む' },
   },
   trash: {
     foundItem: (name: string) => `ゴミの山から${name}が出てきた。前の持ち主のことは考えない。`,

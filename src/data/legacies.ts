@@ -11,7 +11,9 @@ import type { ItemId } from '../core/types';
 export type LegacyCondition =
   | { kind: 'bestDepth'; value: number }
   | { kind: 'totalDeaths'; value: number }
-  | { kind: 'totalKills'; value: number };
+  | { kind: 'totalKills'; value: number }
+  | { kind: 'totalMidBossKills'; value: number }
+  | { kind: 'totalBossKills'; value: number };
 
 /** 来世への効果 */
 export type LegacyEffect =
@@ -48,5 +50,21 @@ export const legacies: LegacyDef[] = [
     description: '累計30体を屠った。どこかの誰かが、来世の財布に30Gを足してくれる。',
     condition: { kind: 'totalKills', value: 30 },
     effect: { kind: 'startingGold', amount: 30 },
+  },
+  {
+    id: 'midBoss1',
+    name: '主殺し',
+    description:
+      'ダンジョンの主を初めて討った。その武勇は語り継がれ、来世の財布に100Gが積まれる。',
+    condition: { kind: 'totalMidBossKills', value: 1 },
+    effect: { kind: 'startingGold', amount: 100 },
+  },
+  {
+    id: 'boss1',
+    name: '英雄の血脈',
+    description:
+      '最深部のあれを討ち果たした。英雄の血を引く来世は、ポーション3つを携えて生まれる。',
+    condition: { kind: 'totalBossKills', value: 1 },
+    effect: { kind: 'startingItem', itemId: 'potion', count: 3 },
   },
 ];

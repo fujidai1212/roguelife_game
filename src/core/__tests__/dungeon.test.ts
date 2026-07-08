@@ -18,7 +18,7 @@ describe('generateFloor: フロアグラフ生成の不変条件', () => {
   it('多数のシードで、構造が常に正しい', () => {
     for (let seed = 0; seed < 100; seed++) {
       const rng = createRng(seed);
-      const nodes = generateFloor(rng);
+      const nodes = generateFloor(rng, 1);
 
       // 起点は入場地点、終点は野営地
       expect(nodes[0].kind).toBe('entrance');
@@ -60,7 +60,7 @@ describe('generateFloor: フロアグラフ生成の不変条件', () => {
   });
 
   it('同じシードからは同じフロアができる（決定性）', () => {
-    expect(generateFloor(createRng(42))).toEqual(generateFloor(createRng(42)));
+    expect(generateFloor(createRng(42), 1)).toEqual(generateFloor(createRng(42), 1));
   });
 });
 

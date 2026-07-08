@@ -236,6 +236,12 @@ function dungeonChoices(life: LifeState): ChoiceBinding[] {
   }
   const current = dungeon.nodes.find((n) => n.id === dungeon.currentNodeId);
   if (!current) return [];
+  // ボス戦から逃げてボスノードに留まっている状態: 「再び挑む」だけを出す
+  if (current.kind === 'midBoss' || current.kind === 'boss') {
+    return [
+      bind('boss-challenge', dungeonTexts.boss.choices.challenge, { type: 'dungeon/challenge' }),
+    ];
+  }
   return current.edges.map((nodeId) => {
     const target = dungeon.nodes.find((n) => n.id === nodeId);
     return bind(`advance-${nodeId}`, target?.hint ?? '', { type: 'dungeon/advance', nodeId });

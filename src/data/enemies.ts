@@ -101,7 +101,47 @@ export const enemies: Record<EnemyId, EnemyDef> = {
     goldMax: 120,
     minDepth: 1,
   },
+  // --- ボス（フロア終点のボスノードにのみ出現。通常テーブルには入らない） ---
+  minotaur: {
+    id: 'minotaur',
+    name: 'ミノタウロス',
+    maxHp: 45,
+    attack: 14,
+    defense: 5,
+    agility: 6,
+    goldMin: 80,
+    goldMax: 150,
+    minDepth: 1,
+  },
+  lich: {
+    id: 'lich',
+    name: 'リッチ',
+    maxHp: 55,
+    attack: 17,
+    defense: 4,
+    agility: 9,
+    goldMin: 150,
+    goldMax: 250,
+    minDepth: 8,
+  },
+  ancientDragon: {
+    id: 'ancientDragon',
+    name: 'エンシェントドラゴン',
+    maxHp: 110,
+    attack: 22,
+    defense: 8,
+    agility: 10,
+    goldMin: 500,
+    goldMax: 900,
+    minDepth: 1,
+  },
 };
 
 /** 出現テーブル（深度で minDepth フィルタをかけて抽選する）。特殊な敵は含めない */
 export const enemyPool: EnemyId[] = ['slime', 'giantRat', 'goblin', 'skeleton', 'orc'];
+
+/** 中ボスの候補（深度で minDepth フィルタをかけて抽選する） */
+export const midBossPool: EnemyId[] = ['minotaur', 'lich'];
+
+/** 最深部ボス（v1のゴール。深度は balance.dungeon.boss.finalDepth） */
+export const finalBossId: EnemyId = 'ancientDragon';

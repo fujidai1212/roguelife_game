@@ -1,5 +1,5 @@
 import { balance } from '../data/balance';
-import { enemies } from '../data/enemies';
+import { enemies, finalBossId } from '../data/enemies';
 import { items, shopStock } from '../data/items';
 import { dungeonTexts } from '../data/texts/dungeon';
 import { townTexts } from '../data/texts/town';
@@ -7,6 +7,7 @@ import { applyDamageToPlayer } from './combat';
 import {
   createEnemyInstance,
   createEnemyInstanceById,
+  createMidBossInstance,
   floorTrapDamage,
   generateFloor,
   pickWeighted,
@@ -32,6 +33,7 @@ export type DungeonAction = Extract<
       | 'dungeon/merchantSteal'
       | 'dungeon/merchantLeave'
       | 'dungeon/useItem'
+      | 'dungeon/challenge'
       | 'dungeon/retreat'
       | 'retreat/step'
       | 'camp/sleep'
@@ -46,7 +48,7 @@ export function merchantPrice(itemId: ItemId): number {
 
 /** 町からダンジョンへ入る（town/go から呼ばれる） */
 export function enterDungeon(state: GameState, life: LifeState, rng: Rng): ActionResult {
-  const nodes = generateFloor(rng);
+  const nodes = generateFloor(rng, 1);
   const dungeon: DungeonState = { depth: 1, nodes, currentNodeId: nodes[0].id };
   const entered: LifeState = {
     ...life,
@@ -148,6 +150,9 @@ export function applyDungeonAction(
             ...aged.logs,
             dungeonTexts.arrive.camp,
           ]);
+        case 'midBoss':
+        case 'boss':
+          return startBossCombat(state, rng, moved, target.kind, aged.logs);
         default:
           return commit(state, rng.getState(), moved, [
             ...aged.logs,
@@ -319,7 +324,7 @@ export function applyDungeonAction(
       const aged = payAge(life, balance.ageCosts.campSleep);
       if (aged.died) return commit(state, rng.getState(), aged.life, aged.logs);
       const depth = dungeon.depth + 1;
-      const nodes = generateFloor(rng);
+      const nodes = generateFloor(rng, depth);
       const descended: LifeState = {
         ...aged.life,
         scene: 'dungeon',
@@ -373,6 +378,16 @@ export function applyDungeonAction(
       return commit(state, rng.getState(), healed.life, [
         dungeonTexts.useItem.healed(def.name, healed.amount),
       ]);
+    }
+
+    case 'dungeon/challenge': {
+      // ボス戦から逃げた後の再挑戦。ボスは全快した新しい個体になる（GAME_DESIGN.md セクション5）
+      const life = requireLife(state, 'dungeon');
+      const dungeon = life?.dungeon;
+      if (!life || !dungeon || dungeon.pendingEvent) return noop(state);
+      const current = dungeon.nodes.find((n) => n.id === dungeon.currentNodeId);
+      if (!current || (current.kind !== 'midBoss' && current.kind !== 'boss')) return noop(state);
+      return startBossCombat(state, rng, life, current.kind, []);
     }
 
     case 'dungeon/retreat': {
@@ -429,6 +444,36 @@ export function applyDungeonAction(
       ]);
     }
   }
+}
+
+/** ボスノードでの戦闘開始（初回到達・再挑戦で共通） */
+function startBossCombat(
+  state: GameState,
+  rng: Rng,
+  life: LifeState,
+  kind: 'midBoss' | 'boss',
+  logs: string[],
+): ActionResult {
+  const depth = life.dungeon!.depth;
+  const enemy =
+    kind === 'boss'
+      ? createEnemyInstanceById(finalBossId, depth)
+      : createMidBossInstance(rng, depth);
+  const name = enemies[enemy.defId].name;
+  const inCombat: LifeState = {
+    ...life,
+    scene: 'combat',
+    combat: {
+      enemy,
+      menu: 'main',
+      context: 'node',
+      bossKind: kind === 'boss' ? 'final' : 'mid',
+    },
+  };
+  return commit(state, rng.getState(), inCombat, [
+    ...logs,
+    kind === 'boss' ? dungeonTexts.arrive.boss(name) : dungeonTexts.arrive.midBoss(name),
+  ]);
 }
 
 /** HPを回復する（最大HPを超えない）。実際に回復した量も返す */

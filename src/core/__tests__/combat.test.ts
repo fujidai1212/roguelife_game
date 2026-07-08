@@ -23,6 +23,8 @@ function makeLife(overrides: Partial<LifeState> = {}): LifeState {
     scene: 'combat',
     alive: true,
     kills: 0,
+    midBossKills: 0,
+    bossKills: 0,
     maxDepth: 1,
     bonusSouls: 0,
     dungeon: { depth: 1, nodes: [], currentNodeId: 0 },

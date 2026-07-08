@@ -13,7 +13,8 @@ import type { GameState, LogEntry, MetaState } from './types';
 // v3: ダンジョン・戦闘の状態を追加（フェーズ2）
 // v4: 魂精算・職業・レガシー・引退を追加（フェーズ3）
 // v5: 盗み・牢屋・裏稼業・ギャンブル・クエスト・新遭遇を追加（フェーズ4）
-export const SAVE_VERSION = 5;
+// v6: 中ボス・最深部ボスと撃破数を追加（フェーズ5）
+export const SAVE_VERSION = 6;
 
 /** メタセーブの形式バージョン（人生セーブとは独立に管理する） */
 export const META_SAVE_VERSION = 1;
@@ -82,5 +83,11 @@ export function parseMeta(json: string): MetaState | null {
   if (typeof meta.totalDeaths !== 'number' || typeof meta.totalKills !== 'number') return null;
   if (typeof meta.bestDepth !== 'number') return null;
 
-  return meta;
+  // フェーズ5で追加したボス撃破数は、古いメタセーブには無いので0で補完する
+  // （メタは「壊れても魂を失わない」領域なので、バージョンを上げて捨てるのではなく補完で対応）
+  return {
+    ...meta,
+    totalMidBossKills: typeof meta.totalMidBossKills === 'number' ? meta.totalMidBossKills : 0,
+    totalBossKills: typeof meta.totalBossKills === 'number' ? meta.totalBossKills : 0,
+  } as MetaState;
 }

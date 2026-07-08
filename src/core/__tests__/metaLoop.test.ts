@@ -31,6 +31,8 @@ function makeState(
       scene: 'town',
       alive: true,
       kills: 0,
+      midBossKills: 0,
+      bossKills: 0,
       maxDepth: 0,
       bonusSouls: 0,
       ...lifeOverrides,
@@ -41,6 +43,8 @@ function makeState(
       unlockedLegacies: [],
       totalDeaths: 0,
       totalKills: 0,
+      totalMidBossKills: 0,
+      totalBossKills: 0,
       bestDepth: 0,
       ...meta,
     },
@@ -68,7 +72,7 @@ describe('人生終了時の魂精算（applyAction のフック）', () => {
         scene: 'combat',
         maxDepth: 3,
         kills: 5,
-        dungeon: { depth: 3, nodes: generateFloor(createRng(1)), currentNodeId: 0 },
+        dungeon: { depth: 3, nodes: generateFloor(createRng(1), 1), currentNodeId: 0 },
         combat: { enemy: brutal, menu: 'main', context: 'node' },
       },
       { maxHp: 10, hp: 10, agility: 1 },
@@ -96,7 +100,7 @@ describe('人生終了時の魂精算（applyAction のフック）', () => {
       {},
       {
         scene: 'combat',
-        dungeon: { depth: 1, nodes: generateFloor(createRng(1)), currentNodeId: 0 },
+        dungeon: { depth: 1, nodes: generateFloor(createRng(1), 1), currentNodeId: 0 },
         combat: { enemy: brutal, menu: 'main', context: 'node' },
       },
       { maxHp: 5, hp: 5, agility: 1 },
@@ -150,6 +154,8 @@ describe('職業の解放と補正', () => {
       unlockedLegacies: [],
       totalDeaths: 1,
       totalKills: 0,
+      totalMidBossKills: 0,
+      totalBossKills: 0,
       bestDepth: 0,
     }).state;
     state = applyAction(state, { type: 'creation/confirmStats' }).state;
@@ -177,6 +183,8 @@ describe('職業の解放と補正', () => {
       unlockedLegacies: [],
       totalDeaths: 1,
       totalKills: 0,
+      totalMidBossKills: 0,
+      totalBossKills: 0,
       bestDepth: 0,
     }).state;
     state = applyAction(state, { type: 'creation/confirmStats' }).state;
@@ -191,7 +199,7 @@ describe('職業スキル', () => {
       { unlockedJobs: ['jobless', jobId] },
       {
         scene: 'combat',
-        dungeon: { depth: 1, nodes: generateFloor(createRng(5)), currentNodeId: 0 },
+        dungeon: { depth: 1, nodes: generateFloor(createRng(5), 1), currentNodeId: 0 },
         combat: { enemy, menu: 'main', context: 'node' },
       },
       stats,
@@ -241,6 +249,8 @@ describe('メタセーブ（別領域の永続化）', () => {
       unlockedLegacies: ['depth5'],
       totalDeaths: 7,
       totalKills: 55,
+      totalMidBossKills: 0,
+      totalBossKills: 0,
       bestDepth: 6,
     };
     expect(parseMeta(serializeMeta(meta))).toEqual(meta);
@@ -259,7 +269,7 @@ describe('レガシー解放の通しフロー', () => {
       { totalDeaths: 2 }, // すでに2回死んでいる
       {
         scene: 'combat',
-        dungeon: { depth: 1, nodes: generateFloor(createRng(9)), currentNodeId: 0 },
+        dungeon: { depth: 1, nodes: generateFloor(createRng(9), 1), currentNodeId: 0 },
         combat: { enemy: brutal, menu: 'main', context: 'node' },
       },
       { maxHp: 5, hp: 5, agility: 1 },
@@ -286,6 +296,8 @@ describe('通しの周回ループ', () => {
       unlockedLegacies: [],
       totalDeaths: 0,
       totalKills: 0,
+      totalMidBossKills: 0,
+      totalBossKills: 0,
       bestDepth: 0,
     };
     let guard = 0;

@@ -16,6 +16,10 @@ function conditionMet(meta: MetaState, legacy: LegacyDef): boolean {
       return meta.totalDeaths >= c.value;
     case 'totalKills':
       return meta.totalKills >= c.value;
+    case 'totalMidBossKills':
+      return meta.totalMidBossKills >= c.value;
+    case 'totalBossKills':
+      return meta.totalBossKills >= c.value;
   }
 }
 

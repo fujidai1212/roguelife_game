@@ -17,7 +17,6 @@ interface LifeRecord {
   gold: number;
   kills: number;
   yearsLived: number;
-  /** 中ボス・ボスはフェーズ5で実装。それまでは常に0 */
   midBossKills: number;
   bossKills: number;
 }
@@ -28,8 +27,8 @@ function toRecord(life: LifeState): LifeRecord {
     gold: life.character.gold,
     kills: life.kills,
     yearsLived: Math.max(0, life.character.ageYears - balance.creation.startAge),
-    midBossKills: 0,
-    bossKills: 0,
+    midBossKills: life.midBossKills,
+    bossKills: life.bossKills,
   };
 }
 
@@ -64,7 +63,9 @@ export function settleLife(life: LifeState): Settlement {
   const b = balance.souls;
   const record = toRecord(life);
   const tier = evaluateTier(life);
-  const cap = b.tiers.find((t) => t.tier === tier)?.cap ?? 0;
+  // cap は null が「上限なし」を意味するので、?? で潰さないこと（ティアが見つからない場合のみ0）
+  const tierDef = b.tiers.find((t) => t.tier === tier);
+  const cap = tierDef ? tierDef.cap : 0;
 
   const raw =
     record.yearsLived * b.perYearLived +
@@ -78,17 +79,20 @@ export function settleLife(life: LifeState): Settlement {
   return { tier, souls: capped + life.bonusSouls };
 }
 
-/** 人生の終わりをメタ状態（魂・統計）に反映する。引退は死亡数に数えない */
+/** 人生の終わりをメタ状態（魂・統計）に反映する。引退・大団円は死亡数に数えない */
 export function applyLifeEndToMeta(
   meta: MetaState,
   life: LifeState,
   settlement: Settlement,
 ): MetaState {
+  const isDeath = life.deathCause !== 'retired' && life.deathCause !== 'victory';
   return {
     ...meta,
     souls: meta.souls + settlement.souls,
-    totalDeaths: life.deathCause === 'retired' ? meta.totalDeaths : meta.totalDeaths + 1,
+    totalDeaths: isDeath ? meta.totalDeaths + 1 : meta.totalDeaths,
     totalKills: meta.totalKills + life.kills,
+    totalMidBossKills: meta.totalMidBossKills + life.midBossKills,
+    totalBossKills: meta.totalBossKills + life.bossKills,
     bestDepth: Math.max(meta.bestDepth, life.maxDepth),
   };
 }

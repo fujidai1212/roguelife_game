@@ -19,6 +19,8 @@ function makeDeadLife(overrides: Partial<LifeState> = {}): LifeState {
     alive: false,
     deathCause: 'battle',
     kills: 5,
+    midBossKills: 0,
+    bossKills: 0,
     maxDepth: 1,
     bonusSouls: 0,
     ...overrides,
@@ -32,6 +34,8 @@ function makeMeta(overrides: Partial<MetaState> = {}): MetaState {
     unlockedLegacies: [],
     totalDeaths: 0,
     totalKills: 0,
+    totalMidBossKills: 0,
+    totalBossKills: 0,
     bestDepth: 0,
     ...overrides,
   };

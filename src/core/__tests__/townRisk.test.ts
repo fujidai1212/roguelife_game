@@ -33,6 +33,8 @@ function makeState(
       scene: 'town',
       alive: true,
       kills: 0,
+      midBossKills: 0,
+      bossKills: 0,
       maxDepth: 0,
       bonusSouls: 0,
       ...lifeOverrides,
@@ -43,6 +45,8 @@ function makeState(
       unlockedLegacies: [],
       totalDeaths: 0,
       totalKills: 0,
+      totalMidBossKills: 0,
+      totalBossKills: 0,
       bestDepth: 0,
     },
     rngState: seed,
@@ -213,7 +217,7 @@ describe('ギルドのクエスト', () => {
       {
         scene: 'combat',
         quest: { questId: def.id, progress: def.count - 1, accepted: true },
-        dungeon: { depth: 1, nodes: generateFloor(createRng(1)), currentNodeId: 0 },
+        dungeon: { depth: 1, nodes: generateFloor(createRng(1), 1), currentNodeId: 0 },
         combat: { enemy: createEnemyInstanceById('slime', 1), menu: 'main', context: 'node' },
       },
       { strength: 999, agility: 999 },
@@ -257,7 +261,7 @@ describe('ギルドのクエスト', () => {
 describe('新しいダンジョン遭遇', () => {
   /** 指定した種類のノードだけを隣に持つダンジョン状態を作る */
   function makeDungeonWith(kind: 'trash' | 'merchant' | 'trap', seed: number): GameState {
-    const nodes = generateFloor(createRng(1)).map((n) =>
+    const nodes = generateFloor(createRng(1), 1).map((n) =>
       n.row === 1 ? { ...n, kind } : n,
     );
     return makeState(
@@ -326,7 +330,7 @@ describe('新しいダンジョン遭遇', () => {
     let state = makeState(
       {
         scene: 'combat',
-        dungeon: { depth: 1, nodes: generateFloor(createRng(1)), currentNodeId: 0 },
+        dungeon: { depth: 1, nodes: generateFloor(createRng(1), 1), currentNodeId: 0 },
         combat: {
           enemy: createEnemyInstanceById('goldenSlime', 1),
           menu: 'main',

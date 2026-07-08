@@ -25,6 +25,8 @@ function makeState(statOverrides: Partial<Stats> = {}, lifeOverrides: Partial<Li
       scene: 'town',
       alive: true,
       kills: 0,
+      midBossKills: 0,
+      bossKills: 0,
       maxDepth: 0,
       bonusSouls: 0,
       ...lifeOverrides,
@@ -35,6 +37,8 @@ function makeState(statOverrides: Partial<Stats> = {}, lifeOverrides: Partial<Li
       unlockedLegacies: [],
       totalDeaths: 0,
       totalKills: 0,
+      totalMidBossKills: 0,
+      totalBossKills: 0,
       bestDepth: 0,
     },
     rngState: 12345,
@@ -159,7 +163,7 @@ describe('戦闘での死と転生', () => {
       { maxHp: 10, hp: 10, strength: 1, agility: 1 },
       {
         scene: 'combat',
-        dungeon: { depth: 1, nodes: generateFloor(createRng(1)), currentNodeId: 0 },
+        dungeon: { depth: 1, nodes: generateFloor(createRng(1), 1), currentNodeId: 0 },
         combat: { enemy: brutal, menu: 'main', context: 'node' },
       },
     );
@@ -195,7 +199,7 @@ describe('戦闘での死と転生', () => {
       { agility: 99, luck: 99 }, // 逃走成功率は上限（90%）になる
       {
         scene: 'combat',
-        dungeon: { depth: 1, nodes: generateFloor(createRng(2)), currentNodeId: 0 },
+        dungeon: { depth: 1, nodes: generateFloor(createRng(2), 1), currentNodeId: 0 },
         combat: { enemy: weak, menu: 'main', context: 'node' },
       },
     );
@@ -213,7 +217,7 @@ describe('戦闘での死と転生', () => {
       {
         lifespanYears: 19,
         scene: 'camp',
-        dungeon: { depth: 1, nodes: generateFloor(createRng(3)), currentNodeId: 0 },
+        dungeon: { depth: 1, nodes: generateFloor(createRng(3), 1), currentNodeId: 0 },
       },
     );
     state.life!.character.ageYears = 18.5;

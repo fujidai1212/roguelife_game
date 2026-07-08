@@ -17,7 +17,10 @@ export type EnemyId =
   | 'skeleton'
   | 'orc'
   | 'guard'
-  | 'goldenSlime';
+  | 'goldenSlime'
+  | 'minotaur'
+  | 'lich'
+  | 'ancientDragon';
 
 /** キャラクターの基本ステータス */
 export interface Stats {
@@ -69,7 +72,7 @@ export type SceneId =
   | 'retreat'
   | 'death';
 
-/** 人生の終わり方。テキストの出し分けと統計に使う（retired は引退＝死ではない） */
+/** 人生の終わり方。テキストの出し分けと統計に使う（retired/victory は死ではない） */
 export type DeathCause =
   | 'oldAge'
   | 'battle'
@@ -78,7 +81,8 @@ export type DeathCause =
   | 'jail'
   | 'roulette'
   | 'underworld'
-  | 'retired';
+  | 'retired'
+  | 'victory';
 
 /** ダンジョンのノード内容（GAME_DESIGN.md セクション5） */
 export type DungeonNodeKind =
@@ -90,7 +94,9 @@ export type DungeonNodeKind =
   | 'trash'
   | 'merchant'
   | 'trap'
-  | 'camp';
+  | 'camp'
+  | 'midBoss'
+  | 'boss';
 
 /**
  * フロアグラフの1ノード。プレイヤーにはグラフ全体を見せず、
@@ -138,6 +144,8 @@ export interface CombatState {
   menu: 'main' | 'items';
   /** 勝利・逃走後にどこへ戻るか（ノード探索中 / 帰還中 / 町での戦闘） */
   context: 'node' | 'retreat' | 'town';
+  /** ボス戦なら設定する。勝利時の処理が変わる（中ボス→野営、最深部→大団円） */
+  bossKind?: 'mid' | 'final';
 }
 
 /** 受注中のクエスト（マスターデータは src/data/quests.ts） */
@@ -159,6 +167,10 @@ export interface LifeState {
   deathCause?: DeathCause;
   /** この人生で倒した敵の数（魂精算に使う） */
   kills: number;
+  /** この人生で倒した中ボスの数（魂精算のティア判定に使う） */
+  midBossKills: number;
+  /** この人生で倒した最深部ボスの数（1でティア4「英雄」＝大団円） */
+  bossKills: number;
   /** この人生で到達した最大深度（魂精算・レガシーに使う） */
   maxDepth: number;
   /** レアモンスター撃破などで得た魂ボーナス（ティア上限の外側で加算） */
@@ -188,10 +200,14 @@ export interface MetaState {
   unlockedJobs: JobId[];
   /** 解放済みレガシーのID（src/data/legacies.ts） */
   unlockedLegacies: string[];
-  /** 累計死亡数（引退は含まない） */
+  /** 累計死亡数（引退・大団円は含まない） */
   totalDeaths: number;
   /** 累計撃破数 */
   totalKills: number;
+  /** 累計中ボス撃破数（レガシーの解放条件に使う） */
+  totalMidBossKills: number;
+  /** 累計最深部ボス撃破数（レガシーの解放条件に使う） */
+  totalBossKills: number;
   /** 全人生を通した最高到達深度 */
   bestDepth: number;
 }
@@ -234,6 +250,7 @@ export type GameAction =
   | { type: 'dungeon/merchantSteal' }
   | { type: 'dungeon/merchantLeave' }
   | { type: 'dungeon/useItem'; itemId: ItemId }
+  | { type: 'dungeon/challenge' }
   | { type: 'dungeon/retreat' }
   | { type: 'retreat/step' }
   | { type: 'camp/sleep' }

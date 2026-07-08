@@ -35,6 +35,8 @@ export function initialMeta(): MetaState {
     unlockedLegacies: [],
     totalDeaths: 0,
     totalKills: 0,
+    totalMidBossKills: 0,
+    totalBossKills: 0,
     bestDepth: 0,
   };
 }
@@ -147,6 +149,8 @@ function applyActionInner(state: GameState, action: GameAction): ActionResult {
         scene: 'town',
         alive: true,
         kills: 0,
+        midBossKills: 0,
+        bossKills: 0,
         maxDepth: 0,
         bonusSouls: 0,
       };
@@ -297,6 +301,7 @@ function applyActionInner(state: GameState, action: GameAction): ActionResult {
     case 'dungeon/merchantSteal':
     case 'dungeon/merchantLeave':
     case 'dungeon/useItem':
+    case 'dungeon/challenge':
     case 'dungeon/retreat':
     case 'retreat/step':
     case 'camp/sleep':

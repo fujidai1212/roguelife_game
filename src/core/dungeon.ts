@@ -1,5 +1,5 @@
 import { balance } from '../data/balance';
-import { enemies, enemyPool } from '../data/enemies';
+import { enemies, enemyPool, midBossPool } from '../data/enemies';
 import { dungeonTexts } from '../data/texts/dungeon';
 import type { Rng } from './rng';
 import type { DungeonNode, DungeonNodeKind, EnemyInstance } from './types';
@@ -35,17 +35,32 @@ function rollNodeKind(rng: Rng): DungeonNodeKind {
 /** ノードの気配テキストを選ぶ。確定情報にならないよう、汎用文も混ぜる */
 function rollHint(rng: Rng, kind: DungeonNodeKind): string {
   const { generic, byKind } = dungeonTexts.hints;
-  const useKind = rng.chance(balance.dungeon.kindHintChance) && byKind[kind].length > 0;
+  // ボスノードは「越えるべき壁」なので、気配は常に匂わせる
+  const alwaysKind = kind === 'midBoss' || kind === 'boss';
+  const useKind =
+    (alwaysKind || rng.chance(balance.dungeon.kindHintChance)) && byKind[kind].length > 0;
   return rng.pick(useKind ? byKind[kind] : generic);
 }
 
 /**
- * 1フロアぶんのグラフを生成する。
- * 構造: 入場地点（段0・1ノード）→ 中間段（各1〜rowWidthMax ノード）→ 野営地（最終段・1ノード）。
- * エッジは必ず次の段へ向かい、全ノードが「入場地点から到達可能」かつ
- * 「野営地へ到達可能」になるように張る。1ノードの進行先は最大 rowWidthMax（=3）。
+ * その深度のフロアの終点ノードの種類（GAME_DESIGN.md セクション5「ボスフロア」）。
+ * 最深部ボスの深度なら 'boss'、中ボス間隔の深度なら 'midBoss'、それ以外は野営地。
  */
-export function generateFloor(rng: Rng): DungeonNode[] {
+export function floorTerminalKind(depth: number): DungeonNodeKind {
+  const b = balance.dungeon.boss;
+  if (depth === b.finalDepth) return 'boss';
+  if (depth % b.midBossInterval === 0) return 'midBoss';
+  return 'camp';
+}
+
+/**
+ * 1フロアぶんのグラフを生成する。
+ * 構造: 入場地点（段0・1ノード）→ 中間段（各1〜rowWidthMax ノード）→ 終点（最終段・1ノード）。
+ * 終点は通常は野営地、ボス深度なら中ボス/ボスノード（floorTerminalKind）。
+ * エッジは必ず次の段へ向かい、全ノードが「入場地点から到達可能」かつ
+ * 「終点へ到達可能」になるように張る。1ノードの進行先は最大 rowWidthMax（=3）。
+ */
+export function generateFloor(rng: Rng, depth: number): DungeonNode[] {
   const b = balance.dungeon;
   const middleRows = rng.int(b.rowsMin, b.rowsMax);
 
@@ -67,7 +82,7 @@ export function generateFloor(rng: Rng): DungeonNode[] {
     const width = rng.int(1, b.rowWidthMax);
     addRow(Array.from({ length: width }, () => rollNodeKind(rng)), r);
   }
-  addRow(['camp'], middleRows + 1);
+  addRow([floorTerminalKind(depth)], middleRows + 1);
 
   // 段と段の間にエッジを張る
   for (let r = 0; r < rows.length - 1; r++) {
@@ -121,6 +136,12 @@ export function createEnemyInstanceById(
 /** その深度で出現しうる敵を抽選し、深度スケールを適用した個体を作る */
 export function createEnemyInstance(rng: Rng, depth: number): EnemyInstance {
   const candidates = enemyPool.filter((id) => enemies[id].minDepth <= depth);
+  return createEnemyInstanceById(rng.pick(candidates), depth);
+}
+
+/** その深度の中ボスを抽選し、深度スケールを適用した個体を作る */
+export function createMidBossInstance(rng: Rng, depth: number): EnemyInstance {
+  const candidates = midBossPool.filter((id) => enemies[id].minDepth <= depth);
   return createEnemyInstanceById(rng.pick(candidates), depth);
 }
 

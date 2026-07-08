@@ -146,6 +146,16 @@ export const balance = {
       chance: 0.06,
       bonusSouls: 3,
     },
+    /**
+     * ボスフロア（GAME_DESIGN.md セクション5「ボスフロア」）。
+     * この深度のフロアは終点が野営地ではなく中ボス/ボスノードになる。
+     */
+    boss: {
+      /** 中ボスが出現する深度の間隔（この倍数の深度で出現） */
+      midBossInterval: 4,
+      /** 最深部ボスの深度（v1のゴール。仕様の範囲は10〜15） */
+      finalDepth: 10,
+    },
   },
   combat: {
     /** ダメージの振れ幅: damage = max(1, attack - defense) * variance */

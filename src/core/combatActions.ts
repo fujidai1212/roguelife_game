@@ -4,6 +4,7 @@ import { items } from '../data/items';
 import { jobs } from '../data/jobs';
 import { quests } from '../data/quests';
 import { dungeonTexts } from '../data/texts/dungeon';
+import { lifeTexts } from '../data/texts/life';
 import { townTexts } from '../data/texts/town';
 import { fleeChance, playerActsFirst, resolveEnemyAttack, resolvePlayerAttack } from './combat';
 import { commit, noop, payAge, requireLife } from './helpers';
@@ -159,6 +160,39 @@ function resolveRound(
       const bonus = balance.dungeon.rare.bonusSouls;
       rewarded = { ...rewarded, bonusSouls: rewarded.bonusSouls + bonus };
       logs = [...logs, dungeonTexts.combat.rareBonus(bonus)];
+    }
+
+    // 最深部ボス撃破: 大団円。人生はここで完結する（魂精算は applyAction の共通フック）
+    if (combat.bossKind === 'final') {
+      const ended: LifeState = {
+        ...rewarded,
+        bossKills: rewarded.bossKills + 1,
+        alive: false,
+        deathCause: 'victory',
+        scene: 'death',
+        dungeon: undefined,
+        combat: undefined,
+      };
+      const age = Math.floor(ended.character.ageYears);
+      return commit(state, rng.getState(), ended, [
+        ...logs,
+        lifeTexts.ending(enemies[enemy.defId].name, age),
+        lifeTexts.endingSummary,
+      ]);
+    }
+
+    // 中ボス撃破: 主のいなくなった広間がそのまま野営地になる
+    if (combat.bossKind === 'mid') {
+      const camped: LifeState = {
+        ...rewarded,
+        midBossKills: rewarded.midBossKills + 1,
+        combat: undefined,
+        scene: 'camp',
+      };
+      return commit(state, rng.getState(), camped, [
+        ...logs,
+        dungeonTexts.boss.midDefeated(enemies[enemy.defId].name),
+      ]);
     }
 
     // 受注中の討伐クエストの対象なら進捗を進める

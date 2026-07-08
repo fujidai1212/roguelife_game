@@ -19,6 +19,8 @@ function makeLife(overrides: Partial<LifeState> = {}): LifeState {
     scene: 'town',
     alive: true,
     kills: 0,
+    midBossKills: 0,
+    bossKills: 0,
     maxDepth: 0,
     bonusSouls: 0,
     ...overrides,
