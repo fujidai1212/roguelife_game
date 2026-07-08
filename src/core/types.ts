@@ -10,7 +10,14 @@ export type JobId = 'jobless' | 'swordsman' | 'thief' | 'mage' | 'paladin';
 export type ItemId = 'herb' | 'potion' | 'returnScroll';
 
 /** 敵ID。マスターデータは src/data/enemies.ts */
-export type EnemyId = 'slime' | 'giantRat' | 'goblin' | 'skeleton' | 'orc';
+export type EnemyId =
+  | 'slime'
+  | 'giantRat'
+  | 'goblin'
+  | 'skeleton'
+  | 'orc'
+  | 'guard'
+  | 'goldenSlime';
 
 /** キャラクターの基本ステータス */
 export interface Stats {
@@ -54,6 +61,8 @@ export type SceneId =
   | 'work'
   | 'church'
   | 'guild'
+  | 'alley'
+  | 'jail'
   | 'dungeon'
   | 'camp'
   | 'combat'
@@ -61,10 +70,27 @@ export type SceneId =
   | 'death';
 
 /** 人生の終わり方。テキストの出し分けと統計に使う（retired は引退＝死ではない） */
-export type DeathCause = 'oldAge' | 'battle' | 'trap' | 'poison' | 'retired';
+export type DeathCause =
+  | 'oldAge'
+  | 'battle'
+  | 'trap'
+  | 'poison'
+  | 'jail'
+  | 'roulette'
+  | 'underworld'
+  | 'retired';
 
 /** ダンジョンのノード内容（GAME_DESIGN.md セクション5） */
-export type DungeonNodeKind = 'entrance' | 'empty' | 'enemy' | 'chest' | 'fountain' | 'camp';
+export type DungeonNodeKind =
+  | 'entrance'
+  | 'empty'
+  | 'enemy'
+  | 'chest'
+  | 'fountain'
+  | 'trash'
+  | 'merchant'
+  | 'trap'
+  | 'camp';
 
 /**
  * フロアグラフの1ノード。プレイヤーにはグラフ全体を見せず、
@@ -87,8 +113,8 @@ export interface DungeonState {
   /** 現在のフロアのグラフ（プレイヤーには非表示） */
   nodes: DungeonNode[];
   currentNodeId: number;
-  /** 現在ノードで未解決のイベント（宝箱・泉の「開ける/飲む」待ち） */
-  pendingEvent?: 'chest' | 'fountain';
+  /** 現在ノードで未解決のイベント（宝箱・泉・ゴミの山・行商人の選択待ち） */
+  pendingEvent?: 'chest' | 'fountain' | 'trash' | 'merchant';
   /** 歩いて帰還中の残りフロア数（scene が 'retreat' のとき有効） */
   retreatFloorsLeft?: number;
 }
@@ -110,8 +136,17 @@ export interface CombatState {
   enemy: EnemyInstance;
   /** 表示中のコマンドメニュー */
   menu: 'main' | 'items';
-  /** 勝利・逃走後にどこへ戻るか（ノード探索中 or 帰還中） */
-  context: 'node' | 'retreat';
+  /** 勝利・逃走後にどこへ戻るか（ノード探索中 / 帰還中 / 町での戦闘） */
+  context: 'node' | 'retreat' | 'town';
+}
+
+/** 受注中のクエスト（マスターデータは src/data/quests.ts） */
+export interface QuestState {
+  questId: string;
+  /** 討伐クエストの撃破数。採取は所持アイテムで判定するので使わない */
+  progress: number;
+  /** false ならギルドで提示されただけの状態（受けるか選べる） */
+  accepted: boolean;
 }
 
 /** 人生レイヤーの進行状態（1プレイぶん） */
@@ -126,6 +161,10 @@ export interface LifeState {
   kills: number;
   /** この人生で到達した最大深度（魂精算・レガシーに使う） */
   maxDepth: number;
+  /** レアモンスター撃破などで得た魂ボーナス（ティア上限の外側で加算） */
+  bonusSouls: number;
+  /** ギルドのクエスト（提示中 or 受注中） */
+  quest?: QuestState;
   /** 引退の確認待ち（教会・ギルドで「引退を申し出る」を押した状態） */
   retireConfirm?: boolean;
   /** 人生終了時の魂精算の結果（applyAction が自動で設定する） */
@@ -174,14 +213,26 @@ export type GameAction =
   | { type: 'creation/chooseJob'; jobId: JobId }
   | { type: 'town/go'; dest: TownDest }
   | { type: 'tavern/rumor' }
+  | { type: 'tavern/cards'; bet: number }
+  | { type: 'tavern/roulette' }
   | { type: 'work/labor'; years: number }
   | { type: 'shop/buy'; itemId: ItemId }
+  | { type: 'shop/steal'; itemId: ItemId }
+  | { type: 'jail/serve' }
+  | { type: 'jail/escape' }
+  | { type: 'alley/job'; jobId: string }
+  | { type: 'guild/accept' }
+  | { type: 'guild/report' }
   | { type: 'scene/backToTown' }
   | { type: 'death/reincarnate' }
   // --- ダンジョン ---
   | { type: 'dungeon/advance'; nodeId: number }
   | { type: 'dungeon/chest'; open: boolean }
   | { type: 'dungeon/fountain'; drink: boolean }
+  | { type: 'dungeon/trash'; dig: boolean }
+  | { type: 'dungeon/merchantBuy'; itemId: ItemId }
+  | { type: 'dungeon/merchantSteal' }
+  | { type: 'dungeon/merchantLeave' }
   | { type: 'dungeon/useItem'; itemId: ItemId }
   | { type: 'dungeon/retreat' }
   | { type: 'retreat/step' }

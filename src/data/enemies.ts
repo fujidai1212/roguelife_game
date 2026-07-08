@@ -78,7 +78,30 @@ export const enemies: Record<EnemyId, EnemyDef> = {
     goldMax: 40,
     minDepth: 6,
   },
+  // --- 通常の出現テーブルには入らない特殊な敵 ---
+  guard: {
+    id: 'guard',
+    name: '用心棒',
+    maxHp: 25,
+    attack: 10,
+    defense: 3,
+    agility: 8,
+    goldMin: 5,
+    goldMax: 15,
+    minDepth: 1,
+  },
+  goldenSlime: {
+    id: 'goldenSlime',
+    name: '金色のスライム',
+    maxHp: 6,
+    attack: 2,
+    defense: 8,
+    agility: 15,
+    goldMin: 60,
+    goldMax: 120,
+    minDepth: 1,
+  },
 };
 
-/** 出現テーブル（深度で minDepth フィルタをかけて抽選する） */
+/** 出現テーブル（深度で minDepth フィルタをかけて抽選する）。特殊な敵は含めない */
 export const enemyPool: EnemyId[] = ['slime', 'giantRat', 'goblin', 'skeleton', 'orc'];

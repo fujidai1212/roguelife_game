@@ -12,7 +12,8 @@ import type { GameState, LogEntry, MetaState } from './types';
 // v2: 時間システムを「日数」から「年齢コスト」に変更（GAME_DESIGN.md セクション3）
 // v3: ダンジョン・戦闘の状態を追加（フェーズ2）
 // v4: 魂精算・職業・レガシー・引退を追加（フェーズ3）
-export const SAVE_VERSION = 4;
+// v5: 盗み・牢屋・裏稼業・ギャンブル・クエスト・新遭遇を追加（フェーズ4）
+export const SAVE_VERSION = 5;
 
 /** メタセーブの形式バージョン（人生セーブとは独立に管理する） */
 export const META_SAVE_VERSION = 1;

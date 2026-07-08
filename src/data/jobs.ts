@@ -10,7 +10,7 @@ import type { JobId } from '../core/types';
 export type ActiveSkillId = 'magicAttack' | 'selfHeal';
 
 /** 常時発動のパッシブスキル */
-export type PassiveSkillId = 'firstStrike' | 'fleeBonus';
+export type PassiveSkillId = 'firstStrike' | 'fleeBonus' | 'stealBonus';
 
 export interface JobDef {
   id: JobId;
@@ -55,8 +55,8 @@ export const jobs: Record<JobId, JobDef> = {
     name: '盗賊',
     unlockCost: 30,
     statBonus: { maxHp: 0, strength: 0, agility: 5, magic: 0, luck: 2 },
-    passives: ['firstStrike', 'fleeBonus'],
-    description: '素早さが高い。常時発動: 戦闘で必ず先手を取り、逃走にも成功しやすい。',
+    passives: ['firstStrike', 'fleeBonus', 'stealBonus'],
+    description: '素早さが高い。常時発動: 戦闘で必ず先手・逃走しやすい・盗みの成功率が上がる。',
   },
   mage: {
     id: 'mage',

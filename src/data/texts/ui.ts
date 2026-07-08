@@ -9,6 +9,8 @@ export const uiTexts = {
     work: '働き口',
     church: '教会',
     guild: '冒険者ギルド',
+    alley: '裏路地',
+    jail: '牢屋',
     dungeon: 'ダンジョン',
     camp: '野営地',
     combat: '戦闘',

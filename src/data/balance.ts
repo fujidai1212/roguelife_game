@@ -26,6 +26,14 @@ export const balance = {
   ageCosts: {
     /** 酒場で噂を聞く（無リスクの情報収集: 極小） */
     tavernRumor: 0.02,
+    /** カード賭博1回（低リスクの賭け事: 極小） */
+    cards: 0.02,
+    /** ロシアンルーレット1回（即死リスクを背負うので意図的に最安。3.1の例外則） */
+    roulette: 0.01,
+    /** 盗み1回（捕まるリスクを背負うので小さく） */
+    theft: 0.05,
+    /** 牢屋からの脱獄の試み（死のリスクがあるので小さく） */
+    jailEscape: 0.05,
     /** ダンジョン内で1ノード進む（危険を伴うので小さく） */
     dungeonMove: 0.05,
     /** 戦闘コマンド1回（死のリスクを背負う行動なので極小） */
@@ -37,6 +45,42 @@ export const balance = {
     /** 歩いて帰還する際の1フロアぶん */
     retreatPerFloor: 0.2,
   },
+  /** 盗み（道具屋・行商人）。成功率 = base + (素早さ+運)×perPoint + 盗賊補正 − 品物の価格×priceRisk */
+  theft: {
+    base: 0.35,
+    perPoint: 0.015,
+    /** 盗賊のパッシブ「盗みの心得」による加算 */
+    thiefBonus: 0.25,
+    /** 高価な品ほど盗みにくい（価格1Gあたりの成功率減少） */
+    priceRisk: 0.001,
+    min: 0.05,
+    max: 0.9,
+    /** 町で捕まったとき、牢屋行きではなく用心棒との戦闘になる確率 */
+    caughtFightChance: 0.5,
+  },
+  jail: {
+    /** 刑期を務める場合の年齢コスト（安全な選択なので重い） */
+    sentenceYears: 1,
+    /** 脱獄成功率 = base + (素早さ+運)×perPoint（min〜maxに収める）。失敗は死 */
+    escapeBase: 0.25,
+    escapePerPoint: 0.01,
+    escapeMin: 0.05,
+    escapeMax: 0.75,
+  },
+  gamble: {
+    /** カード賭博の掛け金の選択肢（G） */
+    cardBets: [10, 50],
+    /** カード賭博の勝率（胴元が少し有利） */
+    cardWinChance: 0.45,
+    /** 勝ったときの払い戻し倍率（掛け金×この値が戻る） */
+    cardPayoutMultiplier: 2,
+    /** ロシアンルーレットの掛け金（G） */
+    rouletteBet: 30,
+    /** 死ぬ確率（6連発の1発） */
+    rouletteDeathChance: 1 / 6,
+    /** 生き残ったときの払い戻し倍率 */
+    roulettePayoutMultiplier: 4,
+  },
   dungeon: {
     /** 1フロアの中間段（入場地点と野営地の間の行数）の範囲 */
     rowsMin: 4,
@@ -46,7 +90,7 @@ export const balance = {
     /** 必須の接続に加えて余分なエッジ（分岐）を張る確率 */
     extraEdgeChance: 0.35,
     /** 中間ノードの内容の重み（相対値） */
-    nodeWeights: { enemy: 45, chest: 20, fountain: 15, empty: 20 },
+    nodeWeights: { enemy: 40, chest: 16, fountain: 12, empty: 16, trash: 8, merchant: 4, trap: 4 },
     /** 気配テキストをノード内容に応じたものにする確率（残りは汎用。確定情報にしない） */
     kindHintChance: 0.5,
     chest: {
@@ -75,6 +119,33 @@ export const balance = {
     retreatEncounterChance: 0.35,
     /** 野営地で休息したときの回復量（最大HPに対する割合） */
     campRestHealFraction: 0.5,
+    /** ゴミの山を漁った結果の確率（残りは「何もない」） */
+    trash: {
+      itemChance: 0.35,
+      damageChance: 0.25,
+      /** 見つかるアイテムの重み */
+      itemWeights: { herb: 60, potion: 30, returnScroll: 10 },
+      /** 悪いものを掴んだときのダメージ（深度スケール前） */
+      damageBase: 6,
+    },
+    /** ダンジョン内の行商人 */
+    merchant: {
+      /** 町の道具屋に対する価格の割増率 */
+      priceMarkup: 1.5,
+    },
+    /** 床の罠ノード。回避率 = base + (素早さ+運)×perPoint（maxまで） */
+    floorTrap: {
+      avoidBase: 0.3,
+      avoidPerPoint: 0.015,
+      avoidMax: 0.9,
+      /** 踏んだときのダメージ（深度スケール前） */
+      damageBase: 10,
+    },
+    /** レアモンスター（金色のスライム）: 敵ノードがこれに置き換わる確率と魂ボーナス */
+    rare: {
+      chance: 0.06,
+      bonusSouls: 3,
+    },
   },
   combat: {
     /** ダメージの振れ幅: damage = max(1, attack - defense) * variance */
