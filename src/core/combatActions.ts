@@ -1,0 +1,171 @@
+import { balance } from '../data/balance';
+import { enemies } from '../data/enemies';
+import { items } from '../data/items';
+import { dungeonTexts } from '../data/texts/dungeon';
+import { townTexts } from '../data/texts/town';
+import { fleeChance, resolveEnemyAttack, resolvePlayerAttack } from './combat';
+import { commit, noop, payAge, requireLife } from './helpers';
+import type { Rng } from './rng';
+import type { ActionResult, CombatState, GameAction, GameState, LifeState } from './types';
+
+/** 戦闘中のアクション */
+export type CombatAction = Extract<
+  GameAction,
+  {
+    type:
+      | 'combat/attack'
+      | 'combat/itemsOpen'
+      | 'combat/itemsClose'
+      | 'combat/useItem'
+      | 'combat/flee';
+  }
+>;
+
+export function applyCombatAction(state: GameState, action: CombatAction, rng: Rng): ActionResult {
+  const life = requireLife(state, 'combat');
+  const combat = life?.combat;
+  if (!life || !combat) return noop(state);
+
+  switch (action.type) {
+    case 'combat/itemsOpen':
+      if (combat.menu !== 'main') return noop(state);
+      return commit(state, rng.getState(), withMenu(life, combat, 'items'), []);
+
+    case 'combat/itemsClose':
+      if (combat.menu !== 'items') return noop(state);
+      return commit(state, rng.getState(), withMenu(life, combat, 'main'), []);
+
+    case 'combat/attack': {
+      if (combat.menu !== 'main') return noop(state);
+      const aged = payAge(life, balance.ageCosts.combatTurn);
+      if (aged.died) return commit(state, rng.getState(), aged.life, aged.logs);
+      return resolveRound(state, rng, aged.life, combat, aged.logs);
+    }
+
+    case 'combat/flee': {
+      if (combat.menu !== 'main') return noop(state);
+      const aged = payAge(life, balance.ageCosts.combatTurn);
+      if (aged.died) return commit(state, rng.getState(), aged.life, aged.logs);
+      if (rng.chance(fleeChance(aged.life))) {
+        return commit(state, rng.getState(), endCombat(aged.life, combat), [
+          ...aged.logs,
+          dungeonTexts.combat.fleeSuccess,
+        ]);
+      }
+      // 逃げ損ねると無防備なまま殴られる（GAME_DESIGN.md セクション6）
+      const hit = resolveEnemyAttack(rng, aged.life, combat.enemy);
+      return commit(state, rng.getState(), hit.life, [
+        ...aged.logs,
+        dungeonTexts.combat.fleeFail,
+        ...hit.logs,
+      ]);
+    }
+
+    case 'combat/useItem': {
+      if (combat.menu !== 'items') return noop(state);
+      const count = life.character.items[action.itemId] ?? 0;
+      if (count <= 0) return noop(state);
+      const def = items[action.itemId];
+
+      if (def.effect.kind === 'return') {
+        // 帰還の巻物は戦闘からも即座に離脱できる
+        const returned: LifeState = {
+          ...consumeItem(life, action.itemId),
+          scene: 'town',
+          dungeon: undefined,
+          combat: undefined,
+        };
+        return commit(state, rng.getState(), returned, [
+          dungeonTexts.useItem.returned,
+          townTexts.hub,
+        ]);
+      }
+
+      const aged = payAge(life, balance.ageCosts.combatTurn);
+      if (aged.died) return commit(state, rng.getState(), aged.life, aged.logs);
+      const healed = healPlayer(consumeItem(aged.life, action.itemId), def.effect.amount);
+      const logs = [...aged.logs, dungeonTexts.useItem.healed(def.name, healed.amount)];
+      // アイテム使用でターンを消費し、敵の攻撃を受ける
+      const hit = resolveEnemyAttack(rng, healed.life, combat.enemy);
+      if (hit.died) return commit(state, rng.getState(), hit.life, [...logs, ...hit.logs]);
+      return commit(state, rng.getState(), withMenu(hit.life, combat, 'main'), [
+        ...logs,
+        ...hit.logs,
+      ]);
+    }
+  }
+}
+
+/** 攻撃コマンド1回ぶん（素早さ順に両者が行動）を解決する */
+function resolveRound(
+  state: GameState,
+  rng: Rng,
+  life: LifeState,
+  combat: CombatState,
+  logs: string[],
+): ActionResult {
+  let enemy = combat.enemy;
+  const playerFirst = life.character.stats.agility >= enemy.agility;
+
+  if (!playerFirst) {
+    const hit = resolveEnemyAttack(rng, life, enemy);
+    logs = [...logs, ...hit.logs];
+    if (hit.died) return commit(state, rng.getState(), hit.life, logs);
+    life = hit.life;
+  }
+
+  const attack = resolvePlayerAttack(rng, life, enemy);
+  enemy = attack.enemy;
+  logs = [...logs, ...attack.logs];
+  if (enemy.hp <= 0) {
+    const gold = rng.int(enemy.goldMin, enemy.goldMax);
+    const rewarded: LifeState = {
+      ...life,
+      character: { ...life.character, gold: life.character.gold + gold },
+    };
+    return commit(state, rng.getState(), endCombat(rewarded, combat), [
+      ...logs,
+      dungeonTexts.combat.win(enemies[enemy.defId].name, gold),
+    ]);
+  }
+
+  if (playerFirst) {
+    const hit = resolveEnemyAttack(rng, life, enemy);
+    logs = [...logs, ...hit.logs];
+    if (hit.died) return commit(state, rng.getState(), hit.life, logs);
+    life = hit.life;
+  }
+
+  return commit(
+    state,
+    rng.getState(),
+    { ...life, combat: { ...combat, enemy, menu: 'main' } },
+    logs,
+  );
+}
+
+/** 戦闘を終了し、元いた場面（ノード探索 or 帰還）へ戻る */
+function endCombat(life: LifeState, combat: CombatState): LifeState {
+  return { ...life, combat: undefined, scene: combat.context === 'retreat' ? 'retreat' : 'dungeon' };
+}
+
+function withMenu(life: LifeState, combat: CombatState, menu: CombatState['menu']): LifeState {
+  return { ...life, combat: { ...combat, menu } };
+}
+
+function consumeItem(life: LifeState, itemId: keyof typeof items): LifeState {
+  const count = life.character.items[itemId] ?? 0;
+  return {
+    ...life,
+    character: { ...life.character, items: { ...life.character.items, [itemId]: count - 1 } },
+  };
+}
+
+function healPlayer(life: LifeState, amount: number): { life: LifeState; amount: number } {
+  const s = life.character.stats;
+  const actual = Math.min(s.maxHp - s.hp, Math.max(0, amount));
+  return {
+    life: { ...life, character: { ...life.character, stats: { ...s, hp: s.hp + actual } } },
+    amount: actual,
+  };
+}

@@ -4,12 +4,15 @@ import { rumors } from '../data/rumors';
 import { creationTexts } from '../data/texts/creation';
 import { townTexts } from '../data/texts/town';
 import { advanceAge } from './aging';
+import { applyCombatAction } from './combatActions';
 import { rollLifespan, rollStartingGold, rollStats } from './creation';
+import { applyDungeonAction, enterDungeon } from './dungeonActions';
+import { noop, requireLife } from './helpers';
 import { restoreRng, type Rng } from './rng';
 import type { ActionResult, GameAction, GameState, LifeState, TownDest } from './types';
 
-/** フェーズ1で入れる町の施設。それ以外は「未実装」表示になる */
-const implementedDests: TownDest[] = ['tavern', 'itemShop', 'work'];
+/** 実装済みの町の施設。それ以外は「未実装」表示になる */
+const implementedDests: TownDest[] = ['tavern', 'itemShop', 'work', 'dungeon'];
 
 /** 新しいゲーム（キャラ作成から）を開始する */
 export function newGame(seed: number): ActionResult {
@@ -83,11 +86,12 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
     }
 
     case 'town/go': {
-      const life = requireLife(state);
+      const life = requireLife(state, 'town');
       if (!life) return noop(state);
       if (!implementedDests.includes(action.dest)) {
         return { state, logs: [townTexts.notImplemented] };
       }
+      if (action.dest === 'dungeon') return enterDungeon(state, life, rng);
       if (action.dest === 'tavern') return moveTo(state, life, 'tavern', townTexts.tavern.enter);
       if (action.dest === 'itemShop') return moveTo(state, life, 'itemShop', townTexts.shop.enter);
       return moveTo(state, life, 'work', townTexts.work.enter);
@@ -157,7 +161,8 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
 
     case 'scene/backToTown': {
       const life = requireLife(state);
-      if (!life || life.scene === 'death') return noop(state);
+      // 「店を出る」系のボタンからのみ使う。ダンジョン内からの帰還は別アクション
+      if (!life || !['tavern', 'itemShop', 'work'].includes(life.scene)) return noop(state);
       return moveTo(state, life, 'town', townTexts.backToTown, townTexts.hub);
     }
 
@@ -167,15 +172,24 @@ export function applyAction(state: GameState, action: GameAction): ActionResult 
       const meta = { ...state.meta, totalDeaths: state.meta.totalDeaths + 1 };
       return startCreation({ ...state, meta }, rng);
     }
-  }
-}
 
-/** 死亡チェックつきで LifeState を取り出す。場面指定があれば一致も確認する */
-function requireLife(state: GameState, scene?: LifeState['scene']): LifeState | null {
-  const life = state.life;
-  if (state.phase !== 'life' || !life || !life.alive) return null;
-  if (scene && life.scene !== scene) return null;
-  return life;
+    case 'dungeon/advance':
+    case 'dungeon/chest':
+    case 'dungeon/fountain':
+    case 'dungeon/useItem':
+    case 'dungeon/retreat':
+    case 'retreat/step':
+    case 'camp/sleep':
+    case 'camp/rest':
+      return applyDungeonAction(state, action, rng);
+
+    case 'combat/attack':
+    case 'combat/itemsOpen':
+    case 'combat/itemsClose':
+    case 'combat/useItem':
+    case 'combat/flee':
+      return applyCombatAction(state, action, rng);
+  }
 }
 
 function moveTo(
@@ -185,9 +199,4 @@ function moveTo(
   ...logs: string[]
 ): ActionResult {
   return { state: { ...state, life: { ...life, scene } }, logs };
-}
-
-/** 不正な状態でのアクションは何もしない（多重タップ対策も兼ねる） */
-function noop(state: GameState): ActionResult {
-  return { state, logs: [] };
 }
