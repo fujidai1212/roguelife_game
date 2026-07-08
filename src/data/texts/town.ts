@@ -113,5 +113,5 @@ export const townTexts = {
       cancel: 'やめる',
     },
   },
-  backToTown: '通りに戻った。',
+  backToTown: '雑踏に戻った。町は何も変わっていない。',
 } as const;

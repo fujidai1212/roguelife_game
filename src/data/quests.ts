@@ -3,7 +3,7 @@ import type { EnemyId, ItemId } from '../core/types';
 /**
  * 冒険者ギルドのクエストのマスターデータ（GAME_DESIGN.md セクション4）。
  * 追加はここに追記するだけで済む（CLAUDE.md アーキテクチャ原則3）。
- * TODO: 報酬は仮置き。フェーズ5のバランス調整パスで見直す。
+ * 報酬は労働（年約50G）や盗みと比べて釣り合う範囲で決めること。
  */
 
 export type QuestDef =
