@@ -70,10 +70,12 @@ export function settleLife(life: LifeState): Settlement {
     record.yearsLived * b.perYearLived +
     record.kills * b.perKill +
     record.gold / b.goldPerSoul;
-  const bonus = life.deathCause === 'retired' ? b.retireBonusMultiplier : 1;
-  const souls = Math.floor(raw * bonus);
+  const retireBonus = life.deathCause === 'retired' ? b.retireBonusMultiplier : 1;
+  const souls = Math.floor(raw * retireBonus);
+  const capped = cap === null ? souls : Math.min(cap, souls);
 
-  return { tier, souls: cap === null ? souls : Math.min(cap, souls) };
+  // レアモンスター等の魂ボーナスはティア上限の外側で加算する
+  return { tier, souls: capped + life.bonusSouls };
 }
 
 /** 人生の終わりをメタ状態（魂・統計）に反映する。引退は死亡数に数えない */

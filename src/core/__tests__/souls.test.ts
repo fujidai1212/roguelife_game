@@ -20,6 +20,7 @@ function makeDeadLife(overrides: Partial<LifeState> = {}): LifeState {
     deathCause: 'battle',
     kills: 5,
     maxDepth: 1,
+    bonusSouls: 0,
     ...overrides,
   };
 }

@@ -1,19 +1,23 @@
 import { balance } from '../data/balance';
 import { enemies } from '../data/enemies';
-import { items } from '../data/items';
+import { items, shopStock } from '../data/items';
 import { dungeonTexts } from '../data/texts/dungeon';
 import { townTexts } from '../data/texts/town';
 import { applyDamageToPlayer } from './combat';
 import {
   createEnemyInstance,
+  createEnemyInstanceById,
+  floorTrapDamage,
   generateFloor,
+  pickWeighted,
   rollChestGold,
   rollPoisonDamage,
   rollTrapDamage,
+  trashDamage,
 } from './dungeon';
-import { commit, noop, payAge, requireLife } from './helpers';
+import { commit, noop, payAge, requireLife, stealSuccessChance } from './helpers';
 import type { Rng } from './rng';
-import type { ActionResult, DungeonState, GameAction, GameState, LifeState } from './types';
+import type { ActionResult, DungeonState, GameAction, GameState, ItemId, LifeState } from './types';
 
 /** ダンジョン探索（戦闘以外）のアクション */
 export type DungeonAction = Extract<
@@ -23,6 +27,10 @@ export type DungeonAction = Extract<
       | 'dungeon/advance'
       | 'dungeon/chest'
       | 'dungeon/fountain'
+      | 'dungeon/trash'
+      | 'dungeon/merchantBuy'
+      | 'dungeon/merchantSteal'
+      | 'dungeon/merchantLeave'
       | 'dungeon/useItem'
       | 'dungeon/retreat'
       | 'retreat/step'
@@ -30,6 +38,11 @@ export type DungeonAction = Extract<
       | 'camp/rest';
   }
 >;
+
+/** 行商人の売値（町より割高。レガシー割引は効かない） */
+export function merchantPrice(itemId: ItemId): number {
+  return Math.round(items[itemId].price * balance.dungeon.merchant.priceMarkup);
+}
 
 /** 町からダンジョンへ入る（town/go から呼ばれる） */
 export function enterDungeon(state: GameState, life: LifeState, rng: Rng): ActionResult {
@@ -67,7 +80,12 @@ export function applyDungeonAction(
 
       switch (target.kind) {
         case 'enemy': {
-          const enemy = createEnemyInstance(rng, dungeon.depth);
+          // ごく稀に、通常の敵の代わりにレアモンスターが現れる
+          const rare = rng.chance(balance.dungeon.rare.chance);
+          const enemy = rare
+            ? createEnemyInstanceById('goldenSlime', dungeon.depth)
+            : createEnemyInstance(rng, dungeon.depth);
+          const name = enemies[enemy.defId].name;
           const inCombat: LifeState = {
             ...moved,
             scene: 'combat',
@@ -75,7 +93,7 @@ export function applyDungeonAction(
           };
           return commit(state, rng.getState(), inCombat, [
             ...aged.logs,
-            dungeonTexts.arrive.enemy(enemies[enemy.defId].name),
+            rare ? dungeonTexts.arrive.rareEnemy(name) : dungeonTexts.arrive.enemy(name),
           ]);
         }
         case 'chest':
@@ -92,6 +110,39 @@ export function applyDungeonAction(
             { ...moved, dungeon: { ...moved.dungeon!, pendingEvent: 'fountain' } },
             [...aged.logs, dungeonTexts.arrive.fountain],
           );
+        case 'trash':
+          return commit(
+            state,
+            rng.getState(),
+            { ...moved, dungeon: { ...moved.dungeon!, pendingEvent: 'trash' } },
+            [...aged.logs, dungeonTexts.arrive.trash],
+          );
+        case 'merchant':
+          return commit(
+            state,
+            rng.getState(),
+            { ...moved, dungeon: { ...moved.dungeon!, pendingEvent: 'merchant' } },
+            [...aged.logs, dungeonTexts.arrive.merchant],
+          );
+        case 'trap': {
+          // 罠は選択の余地なくその場で解決する（回避は素早さ・運に依存）
+          const t = balance.dungeon.floorTrap;
+          const { agility, luck } = moved.character.stats;
+          const avoid = Math.min(t.avoidMax, t.avoidBase + (agility + luck) * t.avoidPerPoint);
+          if (rng.chance(avoid)) {
+            return commit(state, rng.getState(), moved, [
+              ...aged.logs,
+              dungeonTexts.floorTrap.avoided,
+            ]);
+          }
+          const damage = floorTrapDamage(dungeon.depth);
+          const hit = applyDamageToPlayer(moved, damage, 'trap');
+          return commit(state, rng.getState(), hit.life, [
+            ...aged.logs,
+            dungeonTexts.floorTrap.hit(damage),
+            ...hit.logs,
+          ]);
+        }
         case 'camp':
           return commit(state, rng.getState(), { ...moved, scene: 'camp' }, [
             ...aged.logs,
@@ -103,6 +154,116 @@ export function applyDungeonAction(
             rng.pick(dungeonTexts.arrive.empty),
           ]);
       }
+    }
+
+    case 'dungeon/trash': {
+      const life = requireLife(state, 'dungeon');
+      const dungeon = life?.dungeon;
+      if (!life || !dungeon || dungeon.pendingEvent !== 'trash') return noop(state);
+      const cleared: LifeState = { ...life, dungeon: { ...dungeon, pendingEvent: undefined } };
+      if (!action.dig) {
+        return commit(state, rng.getState(), cleared, [dungeonTexts.trash.left]);
+      }
+      const t = balance.dungeon.trash;
+      const roll = rng.next();
+      if (roll < t.itemChance) {
+        const itemId = pickWeighted(rng, t.itemWeights);
+        const owned = cleared.character.items[itemId] ?? 0;
+        const looted: LifeState = {
+          ...cleared,
+          character: {
+            ...cleared.character,
+            items: { ...cleared.character.items, [itemId]: owned + 1 },
+          },
+        };
+        return commit(state, rng.getState(), looted, [
+          dungeonTexts.trash.foundItem(items[itemId].name),
+        ]);
+      }
+      if (roll < t.itemChance + t.damageChance) {
+        const damage = trashDamage(dungeon.depth);
+        const hit = applyDamageToPlayer(cleared, damage, 'poison');
+        return commit(state, rng.getState(), hit.life, [
+          dungeonTexts.trash.hurt(damage),
+          ...hit.logs,
+        ]);
+      }
+      return commit(state, rng.getState(), cleared, [dungeonTexts.trash.nothing]);
+    }
+
+    case 'dungeon/merchantBuy': {
+      const life = requireLife(state, 'dungeon');
+      const dungeon = life?.dungeon;
+      if (!life || !dungeon || dungeon.pendingEvent !== 'merchant') return noop(state);
+      const item = items[action.itemId];
+      const price = merchantPrice(item.id);
+      if (life.character.gold < price) {
+        return { state, logs: [dungeonTexts.merchant.noMoney] };
+      }
+      const owned = life.character.items[item.id] ?? 0;
+      const bought: LifeState = {
+        ...life,
+        character: {
+          ...life.character,
+          gold: life.character.gold - price,
+          items: { ...life.character.items, [item.id]: owned + 1 },
+        },
+      };
+      return commit(state, rng.getState(), bought, [dungeonTexts.merchant.bought(item.name, price)]);
+    }
+
+    case 'dungeon/merchantSteal': {
+      const life = requireLife(state, 'dungeon');
+      const dungeon = life?.dungeon;
+      if (!life || !dungeon || dungeon.pendingEvent !== 'merchant') return noop(state);
+      const aged = payAge(life, balance.ageCosts.theft);
+      if (aged.died) return commit(state, rng.getState(), aged.life, aged.logs);
+      // 品揃えからランダムに1つ狙う
+      const itemId = rng.pick(shopStock);
+      const cleared: LifeState = {
+        ...aged.life,
+        dungeon: { ...dungeon, pendingEvent: undefined },
+      };
+      if (rng.chance(stealSuccessChance(aged.life, items[itemId].price))) {
+        const owned = cleared.character.items[itemId] ?? 0;
+        const looted: LifeState = {
+          ...cleared,
+          character: {
+            ...cleared.character,
+            items: { ...cleared.character.items, [itemId]: owned + 1 },
+          },
+        };
+        return commit(state, rng.getState(), looted, [
+          ...aged.logs,
+          dungeonTexts.merchant.stealSuccess(items[itemId].name),
+        ]);
+      }
+      // 用心棒との戦闘（ダンジョン内なので牢屋はない）
+      const caught: LifeState = {
+        ...cleared,
+        scene: 'combat',
+        combat: {
+          enemy: createEnemyInstanceById('guard', dungeon.depth),
+          menu: 'main',
+          context: 'node',
+        },
+      };
+      return commit(state, rng.getState(), caught, [
+        ...aged.logs,
+        dungeonTexts.merchant.stealCaught,
+      ]);
+    }
+
+    case 'dungeon/merchantLeave': {
+      const life = requireLife(state, 'dungeon');
+      const dungeon = life?.dungeon;
+      if (!life || !dungeon || dungeon.pendingEvent !== 'merchant') return noop(state);
+      return commit(
+        state,
+        rng.getState(),
+        { ...life, dungeon: { ...dungeon, pendingEvent: undefined } },
+        [dungeonTexts.merchant.left],
+      );
     }
 
     case 'dungeon/chest': {

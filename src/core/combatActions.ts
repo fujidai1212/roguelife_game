@@ -2,6 +2,7 @@ import { balance } from '../data/balance';
 import { enemies } from '../data/enemies';
 import { items } from '../data/items';
 import { jobs } from '../data/jobs';
+import { quests } from '../data/quests';
 import { dungeonTexts } from '../data/texts/dungeon';
 import { townTexts } from '../data/texts/town';
 import { fleeChance, playerActsFirst, resolveEnemyAttack, resolvePlayerAttack } from './combat';
@@ -146,15 +147,32 @@ function resolveRound(
   logs = [...logs, ...attack.logs];
   if (enemy.hp <= 0) {
     const gold = rng.int(enemy.goldMin, enemy.goldMax);
-    const rewarded: LifeState = {
+    let rewarded: LifeState = {
       ...life,
       kills: life.kills + 1,
       character: { ...life.character, gold: life.character.gold + gold },
     };
-    return commit(state, rng.getState(), endCombat(rewarded, combat), [
-      ...logs,
-      dungeonTexts.combat.win(enemies[enemy.defId].name, gold),
-    ]);
+    logs = [...logs, dungeonTexts.combat.win(enemies[enemy.defId].name, gold)];
+
+    // レアモンスターは倒すと来世に持ち越す魂ボーナスを落とす
+    if (enemy.defId === 'goldenSlime') {
+      const bonus = balance.dungeon.rare.bonusSouls;
+      rewarded = { ...rewarded, bonusSouls: rewarded.bonusSouls + bonus };
+      logs = [...logs, dungeonTexts.combat.rareBonus(bonus)];
+    }
+
+    // 受注中の討伐クエストの対象なら進捗を進める
+    const quest = rewarded.quest;
+    if (quest?.accepted) {
+      const def = quests.find((q) => q.id === quest.questId);
+      if (def?.kind === 'hunt' && def.targetEnemy === enemy.defId && quest.progress < def.count) {
+        const progress = quest.progress + 1;
+        rewarded = { ...rewarded, quest: { ...quest, progress } };
+        logs = [...logs, townTexts.guild.questProgress(def.name, progress, def.count)];
+      }
+    }
+
+    return commit(state, rng.getState(), endCombat(rewarded, combat), logs);
   }
 
   if (playerFirst) {
@@ -172,9 +190,11 @@ function resolveRound(
   );
 }
 
-/** 戦闘を終了し、元いた場面（ノード探索 or 帰還）へ戻る */
+/** 戦闘を終了し、元いた場面（ノード探索 / 帰還 / 町）へ戻る */
 function endCombat(life: LifeState, combat: CombatState): LifeState {
-  return { ...life, combat: undefined, scene: combat.context === 'retreat' ? 'retreat' : 'dungeon' };
+  const scene =
+    combat.context === 'retreat' ? 'retreat' : combat.context === 'town' ? 'town' : 'dungeon';
+  return { ...life, combat: undefined, scene };
 }
 
 function withMenu(life: LifeState, combat: CombatState, menu: CombatState['menu']): LifeState {

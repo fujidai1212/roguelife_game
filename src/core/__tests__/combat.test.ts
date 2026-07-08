@@ -24,6 +24,7 @@ function makeLife(overrides: Partial<LifeState> = {}): LifeState {
     alive: true,
     kills: 0,
     maxDepth: 1,
+    bonusSouls: 0,
     dungeon: { depth: 1, nodes: [], currentNodeId: 0 },
     ...overrides,
   };

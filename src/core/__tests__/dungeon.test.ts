@@ -54,7 +54,7 @@ describe('generateFloor: フロアグラフ生成の不変条件', () => {
       // 中間ノードの内容は許可された種類のみ
       for (const node of nodes) {
         if (node.row === 0 || node.row === lastRow) continue;
-        expect(['empty', 'enemy', 'chest', 'fountain']).toContain(node.kind);
+        expect(Object.keys(b.nodeWeights)).toContain(node.kind);
       }
     }
   });

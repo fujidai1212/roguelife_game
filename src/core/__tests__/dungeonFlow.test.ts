@@ -26,6 +26,7 @@ function makeState(statOverrides: Partial<Stats> = {}, lifeOverrides: Partial<Li
       alive: true,
       kills: 0,
       maxDepth: 0,
+      bonusSouls: 0,
       ...lifeOverrides,
     },
     meta: {
@@ -59,6 +60,14 @@ function walkToCamp(state: GameState, maxSteps = 300): GameState {
     }
     if (life.dungeon?.pendingEvent === 'fountain') {
       state = applyAction(state, { type: 'dungeon/fountain', drink: false }).state;
+      continue;
+    }
+    if (life.dungeon?.pendingEvent === 'trash') {
+      state = applyAction(state, { type: 'dungeon/trash', dig: false }).state;
+      continue;
+    }
+    if (life.dungeon?.pendingEvent === 'merchant') {
+      state = applyAction(state, { type: 'dungeon/merchantLeave' }).state;
       continue;
     }
     const choices = getChoices(state);

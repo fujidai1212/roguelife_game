@@ -1,10 +1,13 @@
 import { balance } from '../data/balance';
 import { items, shopStock } from '../data/items';
 import { jobOrder, jobs } from '../data/jobs';
+import { quests } from '../data/quests';
+import { underworldJobs } from '../data/underworld';
 import { creationTexts } from '../data/texts/creation';
 import { dungeonTexts } from '../data/texts/dungeon';
 import { lifeTexts } from '../data/texts/life';
 import { townTexts } from '../data/texts/town';
+import { merchantPrice } from './dungeonActions';
 import { shopPrice } from './legacies';
 import type { ChoiceBinding, GameAction, GameState, LifeState, TownDest } from './types';
 
@@ -79,6 +82,12 @@ export function getChoices(state: GameState): ChoiceBinding[] {
         bind('rumor', townTexts.tavern.choices.rumor(balance.tavern.rumorPrice), {
           type: 'tavern/rumor',
         }),
+        ...balance.gamble.cardBets.map((bet) =>
+          bind(`cards-${bet}`, townTexts.tavern.choices.cards(bet), { type: 'tavern/cards', bet }),
+        ),
+        bind('roulette', townTexts.tavern.choices.roulette(balance.gamble.rouletteBet), {
+          type: 'tavern/roulette',
+        }),
         bind('leave', townTexts.tavern.choices.leave, { type: 'scene/backToTown' }),
       ];
     case 'itemShop':
@@ -90,7 +99,30 @@ export function getChoices(state: GameState): ChoiceBinding[] {
             { type: 'shop/buy', itemId },
           ),
         ),
+        ...shopStock.map((itemId) =>
+          bind(`steal-${itemId}`, townTexts.shop.choices.steal(items[itemId].name), {
+            type: 'shop/steal',
+            itemId,
+          }),
+        ),
         bind('leave', townTexts.shop.choices.leave, { type: 'scene/backToTown' }),
+      ];
+    case 'alley':
+      return [
+        ...underworldJobs.map((job) =>
+          bind(`alley-${job.id}`, townTexts.alley.choices.job(job.name, job.payMin, job.payMax), {
+            type: 'alley/job',
+            jobId: job.id,
+          }),
+        ),
+        bind('leave', townTexts.alley.choices.leave, { type: 'scene/backToTown' }),
+      ];
+    case 'jail':
+      return [
+        bind('serve', townTexts.jail.choices.serve(balance.jail.sentenceYears), {
+          type: 'jail/serve',
+        }),
+        bind('escape', townTexts.jail.choices.escape, { type: 'jail/escape' }),
       ];
     case 'work':
       return [
@@ -110,11 +142,31 @@ export function getChoices(state: GameState): ChoiceBinding[] {
           bind('retire-cancel', townTexts.retire.choices.cancel, { type: 'retire/cancel' }),
         ];
       }
-      const texts = life.scene === 'church' ? townTexts.church : townTexts.guild;
-      return [
-        bind('retire-ask', texts.choices.retire, { type: 'retire/ask' }),
-        bind('leave', texts.choices.leave, { type: 'scene/backToTown' }),
-      ];
+      if (life.scene === 'church') {
+        return [
+          bind('retire-ask', townTexts.church.choices.retire, { type: 'retire/ask' }),
+          bind('leave', townTexts.church.choices.leave, { type: 'scene/backToTown' }),
+        ];
+      }
+      // ギルド: クエストの状態に応じて「受ける」「報告する」を出す
+      const choices: ChoiceBinding[] = [];
+      const quest = life.quest;
+      const questDef = quest ? quests.find((q) => q.id === quest.questId) : undefined;
+      if (quest && questDef && !quest.accepted) {
+        choices.push(
+          bind('quest-accept', townTexts.guild.choices.accept(questDef.name), {
+            type: 'guild/accept',
+          }),
+        );
+      }
+      if (quest?.accepted) {
+        choices.push(bind('quest-report', townTexts.guild.choices.report, { type: 'guild/report' }));
+      }
+      choices.push(
+        bind('retire-ask', townTexts.guild.choices.retire, { type: 'retire/ask' }),
+        bind('leave', townTexts.guild.choices.leave, { type: 'scene/backToTown' }),
+      );
+      return choices;
     }
     case 'dungeon':
       return dungeonChoices(life);
@@ -156,6 +208,29 @@ function dungeonChoices(life: LifeState): ChoiceBinding[] {
       bind('fountain-leave', dungeonTexts.fountain.choices.leave, {
         type: 'dungeon/fountain',
         drink: false,
+      }),
+    ];
+  }
+  if (dungeon.pendingEvent === 'trash') {
+    return [
+      bind('trash-dig', dungeonTexts.trash.choices.dig, { type: 'dungeon/trash', dig: true }),
+      bind('trash-leave', dungeonTexts.trash.choices.leave, { type: 'dungeon/trash', dig: false }),
+    ];
+  }
+  if (dungeon.pendingEvent === 'merchant') {
+    return [
+      ...shopStock.map((itemId) =>
+        bind(
+          `merchant-buy-${itemId}`,
+          dungeonTexts.merchant.choices.buy(items[itemId].name, merchantPrice(itemId)),
+          { type: 'dungeon/merchantBuy', itemId },
+        ),
+      ),
+      bind('merchant-steal', dungeonTexts.merchant.choices.steal, {
+        type: 'dungeon/merchantSteal',
+      }),
+      bind('merchant-leave', dungeonTexts.merchant.choices.leave, {
+        type: 'dungeon/merchantLeave',
       }),
     ];
   }

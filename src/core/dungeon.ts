@@ -15,17 +15,21 @@ export function depthMultiplier(depth: number, scalePerDepth: number): number {
   return 1 + scalePerDepth * (depth - 1);
 }
 
-/** 中間ノードの内容を重み付きで抽選する */
-function rollNodeKind(rng: Rng): DungeonNodeKind {
-  const weights = balance.dungeon.nodeWeights;
-  const entries = Object.entries(weights) as [keyof typeof weights, number][];
+/** 重みの表から1つ選ぶ（重みは相対値） */
+export function pickWeighted<T extends string>(rng: Rng, weights: Record<T, number>): T {
+  const entries = Object.entries(weights) as [T, number][];
   const total = entries.reduce((sum, [, w]) => sum + w, 0);
   let roll = rng.next() * total;
-  for (const [kind, weight] of entries) {
+  for (const [key, weight] of entries) {
     roll -= weight;
-    if (roll < 0) return kind;
+    if (roll < 0) return key;
   }
   return entries[entries.length - 1][0];
+}
+
+/** 中間ノードの内容を重み付きで抽選する */
+function rollNodeKind(rng: Rng): DungeonNodeKind {
+  return pickWeighted(rng, balance.dungeon.nodeWeights);
 }
 
 /** ノードの気配テキストを選ぶ。確定情報にならないよう、汎用文も混ぜる */
@@ -94,10 +98,12 @@ export function generateFloor(rng: Rng): DungeonNode[] {
   return nodes;
 }
 
-/** その深度で出現しうる敵を抽選し、深度スケールを適用した個体を作る */
-export function createEnemyInstance(rng: Rng, depth: number): EnemyInstance {
-  const candidates = enemyPool.filter((id) => enemies[id].minDepth <= depth);
-  const def = enemies[rng.pick(candidates)];
+/** 指定した敵に深度スケールを適用した個体を作る（用心棒・レアモンスター等に使う） */
+export function createEnemyInstanceById(
+  id: (typeof enemies)[keyof typeof enemies]['id'],
+  depth: number,
+): EnemyInstance {
+  const def = enemies[id];
   const mult = depthMultiplier(depth, balance.combat.enemyScalePerDepth);
   const maxHp = Math.round(def.maxHp * mult);
   return {
@@ -110,6 +116,12 @@ export function createEnemyInstance(rng: Rng, depth: number): EnemyInstance {
     goldMin: Math.round(def.goldMin * mult),
     goldMax: Math.round(def.goldMax * mult),
   };
+}
+
+/** その深度で出現しうる敵を抽選し、深度スケールを適用した個体を作る */
+export function createEnemyInstance(rng: Rng, depth: number): EnemyInstance {
+  const candidates = enemyPool.filter((id) => enemies[id].minDepth <= depth);
+  return createEnemyInstanceById(rng.pick(candidates), depth);
 }
 
 /** 宝箱の中身の金額を決める（深度スケール＋振れ幅） */
@@ -130,4 +142,16 @@ export function rollTrapDamage(depth: number): number {
 export function rollPoisonDamage(depth: number): number {
   const f = balance.dungeon.fountain;
   return Math.round(f.poisonDamageBase * depthMultiplier(depth, f.poisonScalePerDepth));
+}
+
+/** 床の罠のダメージ（深度スケール。宝箱と同じ増加率を使う） */
+export function floorTrapDamage(depth: number): number {
+  const t = balance.dungeon.floorTrap;
+  return Math.round(t.damageBase * depthMultiplier(depth, balance.dungeon.chest.scalePerDepth));
+}
+
+/** ゴミの山のダメージ（深度スケール） */
+export function trashDamage(depth: number): number {
+  const t = balance.dungeon.trash;
+  return Math.round(t.damageBase * depthMultiplier(depth, balance.dungeon.chest.scalePerDepth));
 }

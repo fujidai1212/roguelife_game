@@ -20,6 +20,7 @@ function makeLife(overrides: Partial<LifeState> = {}): LifeState {
     alive: true,
     kills: 0,
     maxDepth: 0,
+    bonusSouls: 0,
     ...overrides,
   };
 }
