@@ -3,7 +3,7 @@ import type { JobId } from '../core/types';
 /**
  * 職業のマスターデータ（GAME_DESIGN.md セクション2）。
  * 追加・調整はここに追記するだけで済むようにする（CLAUDE.md アーキテクチャ原則3）。
- * TODO: 補正値・解放コストは仮置き。フェーズ5のバランス調整パスで見直す。
+ * フェーズ5でシミュレーション（npm run simulate）に基づいて調整済み。
  */
 
 /** 戦闘コマンドとして使うアクティブスキル */
@@ -45,15 +45,15 @@ export const jobs: Record<JobId, JobDef> = {
   swordsman: {
     id: 'swordsman',
     name: '剣士',
-    unlockCost: 15,
-    statBonus: { maxHp: 8, strength: 4, agility: 0, magic: 0, luck: 0 },
+    unlockCost: 12,
+    statBonus: { maxHp: 12, strength: 5, agility: 0, magic: 0, luck: 0 },
     passives: [],
     description: 'HPと力が高い。スキルはないが、腕一本で安定して戦える。',
   },
   thief: {
     id: 'thief',
     name: '盗賊',
-    unlockCost: 30,
+    unlockCost: 25,
     statBonus: { maxHp: 0, strength: 0, agility: 5, magic: 0, luck: 2 },
     passives: ['firstStrike', 'fleeBonus', 'stealBonus'],
     description: '素早さが高い。常時発動: 戦闘で必ず先手・逃走しやすい・盗みの成功率が上がる。',
@@ -61,8 +61,8 @@ export const jobs: Record<JobId, JobDef> = {
   mage: {
     id: 'mage',
     name: '魔法使い',
-    unlockCost: 60,
-    statBonus: { maxHp: 0, strength: 0, agility: 0, magic: 5, luck: 0 },
+    unlockCost: 45,
+    statBonus: { maxHp: 4, strength: 0, agility: 0, magic: 7, luck: 0 },
     activeSkill: { id: 'magicAttack', name: '魔法攻撃' },
     passives: [],
     description: '魔力が高い。戦闘コマンド「魔法攻撃」は敵の防御を無視する。',
@@ -70,8 +70,8 @@ export const jobs: Record<JobId, JobDef> = {
   paladin: {
     id: 'paladin',
     name: '聖騎士',
-    unlockCost: 120,
-    statBonus: { maxHp: 6, strength: 3, agility: 2, magic: 3, luck: 2 },
+    unlockCost: 80,
+    statBonus: { maxHp: 12, strength: 5, agility: 2, magic: 3, luck: 2 },
     activeSkill: { id: 'selfHeal', name: '自己回復' },
     passives: [],
     description: '全体的に高水準の最上位職。戦闘コマンド「自己回復」で傷を癒せる。',

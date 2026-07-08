@@ -1,15 +1,16 @@
 /**
  * 数値バランスの集約ファイル（CLAUDE.md アーキテクチャ原則4）。
  * マジックナンバーはコードに書かず、必ずここに置く。
- * TODO: すべて初期案の仮置き。フェーズ5のバランス調整パスで見直す。
+ * フェーズ5でシミュレーション（npm run simulate）に基づいて調整済み。
+ * 以後の変更もシミュレーションで検証してから行うこと。
  */
 
 export const balance = {
   creation: {
     /** 各ステータス（力・素早さ・魔力・運）のロール: 2d6 + 3 */
     statDice: { count: 2, sides: 6, bonus: 3 },
-    /** 最大HPのロール: 20 + 2d6 */
-    hpBase: 20,
+    /** 最大HPのロール: 30 + 2d6 */
+    hpBase: 30,
     hpDice: { count: 2, sides: 6, bonus: 0 },
     /** 開始年齢。全キャラ共通の固定値（GAME_DESIGN.md セクション2） */
     startAge: 18,
@@ -162,7 +163,7 @@ export const balance = {
     varianceMin: 0.85,
     varianceMax: 1.15,
     /** 深度1つごとの敵ステータス増加率 */
-    enemyScalePerDepth: 0.15,
+    enemyScalePerDepth: 0.08,
     /** 逃走成功率 = fleeBase + (素早さ+運) * fleePerPoint（fleeMin〜fleeMaxに収める） */
     fleeBase: 0.3,
     fleePerPoint: 0.015,
@@ -171,7 +172,7 @@ export const balance = {
   },
   skills: {
     /** 聖騎士「自己回復」の回復量（最大HPに対する割合） */
-    selfHealFraction: 0.35,
+    selfHealFraction: 0.4,
     /** 盗賊のパッシブ「逃走強化」による逃走成功率への加算 */
     fleeBonus: 0.2,
   },

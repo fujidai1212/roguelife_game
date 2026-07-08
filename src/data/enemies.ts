@@ -4,8 +4,9 @@ import type { EnemyId } from '../core/types';
  * 敵のマスターデータ。追加はここに追記するだけで済むようにする
  * （CLAUDE.md アーキテクチャ原則3）。
  * ステータスは深度1基準の値。実際の出現時には深度スケールがかかる
- * （src/core/dungeon.ts の createEnemyInstance）。
- * TODO: 数値はすべて仮置き。フェーズ5のバランス調整パスで見直す。
+ * （src/core/dungeon.ts の createEnemyInstance）。ボスも同様にスケールするので、
+ * 出現深度での実効値を意識して基準値を決めること。
+ * フェーズ5でシミュレーション（npm run simulate）に基づいて調整済み。
  */
 
 export interface EnemyDef {
@@ -105,9 +106,9 @@ export const enemies: Record<EnemyId, EnemyDef> = {
   minotaur: {
     id: 'minotaur',
     name: 'ミノタウロス',
-    maxHp: 45,
-    attack: 14,
-    defense: 5,
+    maxHp: 38,
+    attack: 12,
+    defense: 4,
     agility: 6,
     goldMin: 80,
     goldMax: 150,
@@ -116,8 +117,8 @@ export const enemies: Record<EnemyId, EnemyDef> = {
   lich: {
     id: 'lich',
     name: 'リッチ',
-    maxHp: 55,
-    attack: 17,
+    maxHp: 50,
+    attack: 15,
     defense: 4,
     agility: 9,
     goldMin: 150,
@@ -127,9 +128,9 @@ export const enemies: Record<EnemyId, EnemyDef> = {
   ancientDragon: {
     id: 'ancientDragon',
     name: 'エンシェントドラゴン',
-    maxHp: 110,
-    attack: 22,
-    defense: 8,
+    maxHp: 70,
+    attack: 14,
+    defense: 4,
     agility: 10,
     goldMin: 500,
     goldMax: 900,
